@@ -1,14 +1,21 @@
-import type {Team, MdxListItem, Await} from '~/types'
+import type {Team, MdxListItem, Await, User} from '~/types'
 import {subYears, subMonths} from 'date-fns'
 import {shuffle} from 'lodash'
 import {getBlogMdxListItems} from './mdx'
 import {prismaRead} from './prisma.server'
-import {teams, typedBoolean} from './misc'
-import {getSession} from './session.server'
+import {
+  getDomainUrl,
+  getRequiredServerEnvVar,
+  teams,
+  typedBoolean,
+} from './misc'
+import {getSession, getUser} from './session.server'
 import {filterPosts} from './blog'
 import {getClientSession} from './client.server'
 import {cachified, lruCache} from './cache.server'
 import {redisCache} from './redis.server'
+import {sendMessageFromDiscordBot} from './discord.server'
+import {teamEmoji} from './team-provider'
 
 async function getBlogRecommendations(
   request: Request,
@@ -144,15 +151,13 @@ async function getMostPopularPostSlugs({
 
 async function getTotalPostReads(request: Request, slug?: string) {
   return cachified({
-    key: 'total-post-reads',
+    key: `total-post-reads:${slug ?? '__all-posts__'}`,
     cache: lruCache,
     maxAge: 1000 * 60,
     request,
     checkValue: (value: unknown) => typeof value === 'number',
     getFreshValue: () =>
-      prismaRead.postRead.count({
-        where: {postSlug: slug},
-      }),
+      prismaRead.postRead.count(slug ? {where: {postSlug: slug}} : undefined),
   })
 }
 
@@ -211,7 +216,7 @@ async function getBlogReadRankings({
           const recentReads = await getRecentReads(slug, team)
           let ranking = 0
           if (activeMembers) {
-            ranking = Number(recentReads / activeMembers)
+            ranking = Number((recentReads / activeMembers).toFixed(4))
           }
           return {team, totalReads, ranking}
         }),
@@ -316,10 +321,136 @@ async function getActiveMembers(team: Team) {
   return count
 }
 
+async function getSlugReadsByUser(request: Request) {
+  const user = await getUser(request)
+  if (!user) return []
+  const reads = await prismaRead.postRead.findMany({
+    where: {userId: user.id},
+    select: {postSlug: true},
+  })
+  return Array.from(new Set(reads.map(read => read.postSlug)))
+}
+
+async function getPostJson(request: Request) {
+  const posts = await getBlogMdxListItems({request})
+
+  const blogUrl = `${getDomainUrl(request)}/blog`
+
+  return posts.map(post => {
+    const {
+      slug,
+      frontmatter: {title, description, meta: {keywords = []} = {}, categories},
+    } = post
+    return {
+      id: slug,
+      slug,
+      productionUrl: `${blogUrl}/${slug}`,
+      title,
+      categories,
+      keywords,
+      description,
+    }
+  })
+}
+
+const leaderboardChannelId = getRequiredServerEnvVar(
+  'DISCORD_LEADERBOARD_CHANNEL',
+)
+
+const getUserDiscordMention = (user: User) =>
+  user.discordId ? `<@!${user.discordId}>` : user.firstName
+
+async function notifyOfTeamLeaderChangeOnPost({
+  request,
+  prevLeader,
+  newLeader,
+  postSlug,
+  reader,
+}: {
+  request: Request
+  prevLeader?: Team
+  newLeader: Team
+  postSlug: string
+  reader: User | null
+}) {
+  const blogUrl = `${getDomainUrl(request)}/blog`
+  const newLeaderEmoji = teamEmoji[newLeader]
+  const url = `${blogUrl}/${postSlug}`
+  const newTeamMention = `the ${newLeaderEmoji} ${newLeader.toLowerCase()} team`
+  if (prevLeader) {
+    const prevLeaderEmoji = teamEmoji[prevLeader]
+    const prevTeamMention = `the ${prevLeaderEmoji} ${prevLeader.toLowerCase()} team`
+    if (reader && reader.team === newLeader) {
+      const readerMention = getUserDiscordMention(reader)
+      const cause = `${readerMention} just read ${url} and won the post from ${prevTeamMention} for ${newTeamMention}!`
+      await sendMessageFromDiscordBot(
+        leaderboardChannelId,
+        `🎉 Congratulations to ${newTeamMention}! You've won a post!\n\n${cause}`,
+      )
+    } else {
+      const who = reader
+        ? `Someone on the ${
+            teamEmoji[reader.team]
+          } ${reader.team.toLowerCase()} team`
+        : `An anonymous user`
+      const cause = `${who} just read ${url} and triggered a recalculation of the rankings: ${prevTeamMention} lost the post and it's now claimed by ${newTeamMention}!`
+      await sendMessageFromDiscordBot(
+        leaderboardChannelId,
+        `🎉 Congratulations to ${newTeamMention}! You've won a post!\n\n${cause}`,
+      )
+    }
+  } else if (reader) {
+    const readerMention = getUserDiscordMention(reader)
+    await sendMessageFromDiscordBot(
+      leaderboardChannelId,
+      `Congratulations to ${newTeamMention}! You've won a post!\n\n${readerMention} just read ${url} and claimed the post for ${newTeamMention}!`,
+    )
+  }
+}
+
+async function notifyOfOverallTeamLeaderChange({
+  request,
+  prevLeader,
+  newLeader,
+  postSlug,
+  reader,
+}: {
+  request: Request
+  prevLeader?: Team
+  newLeader: Team
+  postSlug: string
+  reader: User | null
+}) {
+  const blogUrl = `${getDomainUrl(request)}/blog`
+  const newLeaderEmoji = teamEmoji[newLeader]
+  const url = `${blogUrl}/${postSlug}`
+
+  const cause = reader
+    ? `${getUserDiscordMention(reader)} just read ${url}`
+    : `An anonymous user just read ${url} triggering a ranking recalculation`
+
+  if (prevLeader) {
+    const prevLeaderEmoji = teamEmoji[prevLeader]
+    await sendMessageFromDiscordBot(
+      leaderboardChannelId,
+      `🎉 Congratulations to the ${newLeaderEmoji} ${newLeader.toLowerCase()} team! ${cause} and knocked team ${prevLeaderEmoji} ${prevLeader.toLowerCase()} team off the top of the leader board! 👏`,
+    )
+  } else {
+    await sendMessageFromDiscordBot(
+      leaderboardChannelId,
+      `🎉 Congratulations to the ${newLeaderEmoji} ${newLeader.toLowerCase()} team! ${cause} and took ${newLeader.toLowerCase()} team to the top of the leader board! 👏`,
+    )
+  }
+}
+
 export {
   getBlogRecommendations,
   getBlogReadRankings,
   getAllBlogPostReadRankings,
+  getSlugReadsByUser,
   getTotalPostReads,
   getReaderCount,
+  getPostJson,
+  notifyOfTeamLeaderChangeOnPost,
+  notifyOfOverallTeamLeaderChange,
 }

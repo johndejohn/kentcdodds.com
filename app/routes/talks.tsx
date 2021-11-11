@@ -25,16 +25,19 @@ import {getSocialMetas} from '~/utils/seo'
 
 export const meta: MetaFunction = ({data, parentsData}) => {
   const {talks = [], tags = []} = (data as LoaderData | undefined) ?? {}
-  const {requestInfo} = parentsData as RootLoaderData
+  const {requestInfo} = parentsData.root as RootLoaderData
   const talkCount = talks.length
+  const deliveryCount = talks.flatMap(t => t.deliveries).length
   const title = `${talkCount} talks by Kent all about software development`
   const topicsList = listify(tags.slice(0, 6))
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title,
-      description: `Check out Kent's ${talkCount} talks. Topics include: ${topicsList}`,
+      description: `Check out Kent's ${talkCount} talks he's delivered ${deliveryCount} times. Topics include: ${topicsList}`,
       url: getUrl(requestInfo),
       image: getGenericSocialImage({
+        origin: requestInfo.origin,
         url: getDisplayUrl(requestInfo),
         featuredImage: images.teslaY.id,
         words: title,
@@ -78,7 +81,7 @@ function Card({
   return (
     <div
       className={clsx(
-        'relative flex flex-col p-16 pr-24 w-full h-full bg-gray-100 dark:bg-gray-800 rounded-lg',
+        'relative flex flex-col p-6 w-full h-full bg-gray-100 dark:bg-gray-800 rounded-lg md:p-16',
         {
           'ring-2 focus-ring': active,
         },

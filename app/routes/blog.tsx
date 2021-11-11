@@ -1,8 +1,10 @@
 import * as React from 'react'
 import type {LoaderFunction, HeadersFunction, MetaFunction} from 'remix'
 import {Link, json, useLoaderData} from 'remix'
+import clsx from 'clsx'
 import {useSearchParams} from 'react-router-dom'
-import type {KCDHandle, MdxListItem, Team} from '~/types'
+import {MixedCheckbox} from '@reach/checkbox'
+import type {Await, KCDHandle, MdxListItem, Team} from '~/types'
 import {useRootData} from '~/utils/use-root-data'
 import {Grid} from '~/components/grid'
 import {
@@ -17,7 +19,7 @@ import {ArticleCard} from '~/components/article-card'
 import {ArrowLink} from '~/components/arrow-button'
 import {FeaturedSection} from '~/components/sections/featured-section'
 import {Tag} from '~/components/tag'
-import {getBlogMdxListItems} from '~/utils/mdx'
+import {getBlogMdxListItems, getBannerAltProp} from '~/utils/mdx'
 import {filterPosts, getRankingLeader} from '~/utils/blog'
 import {HeroSection} from '~/components/sections/hero-section'
 import {PlusIcon} from '~/components/icons/plus-icon'
@@ -26,12 +28,13 @@ import type {Timings} from '~/utils/metrics.server'
 import {getServerTimeHeader} from '~/utils/metrics.server'
 import {ServerError} from '~/components/errors'
 import {
+  formatAbbreviatedNumber,
   formatDate,
   formatNumber,
   getDisplayUrl,
   getUrl,
+  isTeam,
   reuseUsefulLoaderHeaders,
-  teams,
   useUpdateQueryStringValueWithoutNavigation,
 } from '~/utils/misc'
 import {TeamStats} from '~/components/team-stats'
@@ -41,6 +44,7 @@ import {
   getBlogReadRankings,
   getBlogRecommendations,
   getReaderCount,
+  getSlugReadsByUser,
   getTotalPostReads,
   ReadRankings,
 } from '~/utils/blog.server'
@@ -63,6 +67,7 @@ type LoaderData = {
   totalReads: string
   totalBlogReaders: string
   overallLeadingTeam: Team | null
+  userReads: Await<ReturnType<typeof getSlugReadsByUser>>
 }
 
 export const loader: LoaderFunction = async ({request}) => {
@@ -75,6 +80,7 @@ export const loader: LoaderFunction = async ({request}) => {
     totalReads,
     totalBlogReaders,
     allPostReadRankings,
+    userReads,
   ] = await Promise.all([
     getBlogMdxListItems({request, timings}),
     getBlogRecommendations(request, {limit: 1}),
@@ -82,6 +88,7 @@ export const loader: LoaderFunction = async ({request}) => {
     getTotalPostReads(request),
     getReaderCount(request),
     getAllBlogPostReadRankings({request}),
+    getSlugReadsByUser(request),
   ])
 
   const tags = new Set<string>()
@@ -96,8 +103,9 @@ export const loader: LoaderFunction = async ({request}) => {
     recommended,
     readRankings,
     allPostReadRankings,
-    totalReads: formatNumber(totalReads),
-    totalBlogReaders: formatNumber(totalBlogReaders),
+    totalReads: formatAbbreviatedNumber(totalReads),
+    totalBlogReaders: formatAbbreviatedNumber(totalBlogReaders),
+    userReads,
     tags: Array.from(tags),
     overallLeadingTeam: getRankingLeader(readRankings)?.team ?? null,
   }
@@ -119,6 +127,7 @@ export const meta: MetaFunction = ({data, parentsData}) => {
 
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title: 'The Kent C. Dodds Blog',
       description: `Join ${totalBlogReaders} people who have read Kent's ${formatNumber(
         posts.length,
@@ -127,6 +136,7 @@ export const meta: MetaFunction = ({data, parentsData}) => {
         'JavaScript, TypeScript, React, Testing, Career, Software Development, Kent C. Dodds Blog',
       url: getUrl(requestInfo),
       image: getSocialImageWithPreTitle({
+        origin: requestInfo.origin,
         url: getDisplayUrl(requestInfo),
         featuredImage: images.skis.id,
         preTitle: 'Check out this Blog',
@@ -141,14 +151,25 @@ const PAGE_SIZE = 12
 const initialIndexToShow = PAGE_SIZE
 
 const specialQueryRegex = /(?<not>!)?leader:(?<team>\w+)(\s|$)?/g
-const isTeam = (team?: string): team is Team => teams.includes(team as Team)
 
 function BlogHome() {
   const {requestInfo} = useRootData()
   const [searchParams] = useSearchParams()
+  const [userReadsState, setUserReadsState] = React.useState<
+    'read' | 'unread' | 'unset'
+  >('unset')
+  const searchInputRef = React.useRef<HTMLInputElement>(null)
 
   const [userTeam] = useTeam()
 
+  const resultsRef = React.useRef<HTMLDivElement>(null)
+  /**
+   * This is here to make sure that a user doesn't hit "enter" on the search
+   * button, which focuses the input and then keyup the enter on the input
+   * which will trigger the scroll down. We should *only* scroll when the
+   * "enter" keypress and keyup happen on the input.
+   */
+  const ignoreInputKeyUp = React.useRef<boolean>(false)
   const [queryValue, setQuery] = React.useState<string>(() => {
     return searchParams.get('q') ?? ''
   })
@@ -157,7 +178,7 @@ function BlogHome() {
   useUpdateQueryStringValueWithoutNavigation('q', query)
 
   const data = useLoaderData<LoaderData>()
-  const allPosts = data.posts
+  const {posts: allPosts, userReads} = data
 
   const getLeadingTeamForSlug = React.useCallback(
     (slug: string) => {
@@ -186,9 +207,21 @@ function BlogHome() {
       match = r.exec(query)
     }
 
-    const teamPosts =
+    let filteredPosts = allPosts
+
+    filteredPosts =
+      userReadsState === 'unset'
+        ? filteredPosts
+        : filteredPosts.filter(post => {
+            const isRead = userReads.includes(post.slug)
+            if (userReadsState === 'read' && !isRead) return false
+            if (userReadsState === 'unread' && isRead) return false
+            return true
+          })
+
+    filteredPosts =
       leaders.length || nonLeaders.length
-        ? allPosts.filter(post => {
+        ? filteredPosts.filter(post => {
             const leader = getLeadingTeamForSlug(post.slug)
             if (leaders.length && leader && leaders.includes(leader)) {
               return true
@@ -201,10 +234,17 @@ function BlogHome() {
             }
             return false
           })
-        : allPosts
+        : filteredPosts
 
-    return filterPosts(teamPosts, regularQuery)
-  }, [allPosts, query, regularQuery, getLeadingTeamForSlug])
+    return filterPosts(filteredPosts, regularQuery)
+  }, [
+    allPosts,
+    query,
+    regularQuery,
+    getLeadingTeamForSlug,
+    userReadsState,
+    userReads,
+  ])
 
   const [indexToShow, setIndexToShow] = React.useState(initialIndexToShow)
   // when the query changes, we want to reset the index
@@ -242,13 +282,13 @@ function BlogHome() {
     setQuery(`${newSpecialQuery} ${regularQuery}`.trim())
   }
 
-  const isSearching = query.length > 0
+  const isSearching = query.length > 0 || userReadsState !== 'unset'
 
   const posts = isSearching
     ? matchingPosts.slice(0, indexToShow)
     : matchingPosts
-        .slice(0, indexToShow)
         .filter(p => p.slug !== data.recommended?.slug)
+        .slice(0, indexToShow)
 
   const hasMorePosts = isSearching
     ? indexToShow < matchingPosts.length
@@ -265,6 +305,20 @@ function BlogHome() {
   const recommendedPermalink = data.recommended
     ? `${requestInfo.origin}/blog/${data.recommended.slug}`
     : undefined
+
+  const checkboxLabel =
+    userReadsState === 'read'
+      ? 'Showing only posts you have not read'
+      : userReadsState === 'unread'
+      ? `Showing only posts you have read`
+      : `Showing all posts`
+
+  const searchInputPlaceholder =
+    userReadsState === 'read'
+      ? 'Search posts you have read'
+      : userReadsState === 'unread'
+      ? 'Search posts you have not read'
+      : 'Search posts'
 
   return (
     <div
@@ -286,20 +340,68 @@ function BlogHome() {
               onSubmit={e => e.preventDefault()}
             >
               <div className="relative">
-                <div className="absolute left-8 top-0 flex items-center justify-center h-full text-blueGray-500">
+                <button
+                  title={query === '' ? 'Search' : 'Clear search'}
+                  type="button"
+                  onClick={() => {
+                    setQuery('')
+                    ignoreInputKeyUp.current = true
+                    searchInputRef.current?.focus()
+                  }}
+                  onKeyDown={() => {
+                    ignoreInputKeyUp.current = true
+                  }}
+                  onKeyUp={() => {
+                    ignoreInputKeyUp.current = false
+                  }}
+                  className={clsx(
+                    'absolute left-6 top-0 flex items-center justify-center p-0 h-full text-blueGray-500 bg-transparent border-none',
+                    {
+                      'cursor-pointer': query !== '',
+                      'cursor-default': query === '',
+                    },
+                  )}
+                >
                   <SearchIcon />
-                </div>
+                </button>
                 <input
+                  ref={searchInputRef}
+                  type="search"
                   value={queryValue}
                   onChange={event =>
                     setQuery(event.currentTarget.value.toLowerCase())
                   }
+                  onKeyUp={e => {
+                    if (!ignoreInputKeyUp.current && e.key === 'Enter') {
+                      resultsRef.current
+                        ?.querySelector('a')
+                        ?.focus({preventScroll: true})
+                      resultsRef.current?.scrollIntoView({behavior: 'smooth'})
+                    }
+                    ignoreInputKeyUp.current = false
+                  }}
                   name="q"
-                  placeholder="Search blog"
-                  aria-label="Search blog"
-                  className="text-primary bg-primary border-secondary focus:bg-secondary px-16 py-6 w-full text-lg font-medium border hover:border-team-current focus:border-team-current rounded-full focus:outline-none"
+                  placeholder={searchInputPlaceholder}
+                  className="text-primary bg-primary border-secondary focus:bg-secondary pl-14 pr-6 py-6 w-full text-lg font-medium border hover:border-team-current focus:border-team-current rounded-full focus:outline-none md:pr-24"
                 />
-                <div className="absolute right-8 top-0 flex items-center justify-center h-full text-blueGray-500 text-lg font-medium">
+                <div className="absolute right-6 top-0 hidden items-center justify-between w-14 h-full text-blueGray-500 text-lg font-medium md:flex">
+                  <MixedCheckbox
+                    title={checkboxLabel}
+                    aria-label={checkboxLabel}
+                    onChange={() => {
+                      setUserReadsState(s => {
+                        if (s === 'unset') return 'unread'
+                        if (s === 'unread') return 'read'
+                        return 'unset'
+                      })
+                    }}
+                    checked={
+                      userReadsState === 'unset'
+                        ? 'mixed'
+                        : userReadsState === 'read'
+                    }
+                  />
+                  <div className="flex-1" />
                   {matchingPosts.length}
                 </div>
               </div>
@@ -314,6 +416,7 @@ function BlogHome() {
             <TeamStats
               totalReads={data.totalReads}
               rankings={data.readRankings}
+              pull="left"
               direction="down"
               onStatClick={toggleTeam}
             />
@@ -394,14 +497,12 @@ function BlogHome() {
                 : 'TBA'
             }
             title={data.recommended.frontmatter.title}
+            blurDataUrl={data.recommended.frontmatter.bannerBlurDataUrl}
             imageBuilder={
               data.recommended.frontmatter.bannerCloudinaryId
                 ? getImageBuilder(
                     data.recommended.frontmatter.bannerCloudinaryId,
-                    data.recommended.frontmatter.bannerAlt ??
-                      data.recommended.frontmatter.bannerCredit ??
-                      data.recommended.frontmatter.title ??
-                      'Post banner',
+                    getBannerAltProp(data.recommended.frontmatter),
                   )
                 : undefined
             }
@@ -414,7 +515,7 @@ function BlogHome() {
         </div>
       ) : null}
 
-      <Grid className="mb-64">
+      <Grid className="mb-64" ref={resultsRef}>
         {posts.length === 0 ? (
           <div className="flex flex-col col-span-full items-center">
             <img
@@ -424,9 +525,8 @@ function BlogHome() {
                 sizes: ['(max-width: 639px) 80vw', '512px'],
               })}
             />
-            <H3 variant="secondary" className="mt-24 max-w-lg">
-              Looks like there are no articles for this topic. Use the tags
-              above to find articles.
+            <H3 as="p" variant="secondary" className="mt-24 max-w-lg">
+              {`Couldn't find anything to match your criteria. Sorry.`}
             </H3>
           </div>
         ) : (
@@ -487,3 +587,8 @@ export function ErrorBoundary({error}: {error: Error}) {
   console.error(error)
   return <ServerError />
 }
+
+/*
+eslint
+  complexity: "off",
+*/

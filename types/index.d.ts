@@ -39,6 +39,7 @@ type MdxPage = {
     bannerCloudinaryId?: string
     bannerCredit?: string
     bannerAlt?: string
+    bannerTitle?: string
     socialImageTitle?: string
     socialImagePreTitle?: string
     translations?: Array<{
@@ -58,9 +59,31 @@ type MdxPage = {
  */
 type MdxListItem = Omit<MdxPage, 'code'>
 
+type ManualWorkshopEvent = {
+  type: 'manual'
+  title: string
+  url: string
+  quantity?: number
+  remaining?: number
+  date: string
+}
+
+type KeyTakeaway = {
+  title: string
+  description: string
+}
+
+type ProblemStatements = {
+  part1: string
+  part2: string
+  part3: string
+  part4: string
+}
+
 type Workshop = {
   slug: string
   title: string
+  events: Array<ManualWorkshopEvent>
   description: string
   categories: Array<string>
   meta?: Record<string, string>
@@ -167,8 +190,6 @@ type KCDHandle = {
     | Promise<Array<KCDSitemapEntry | null> | null>
     | Array<KCDSitemapEntry | null>
     | null
-  /** This gives us a little more flexibility in the kind of metadata elements you can render than the built-in meta export */
-  metas?: Array<JSX.IntrinsicElements['meta']>
   scroll?: false
 }
 

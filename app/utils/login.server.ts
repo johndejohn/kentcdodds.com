@@ -1,14 +1,16 @@
 import {createCookieSessionStorage} from 'remix'
+import {decrypt, encrypt} from './encryption.server'
 import {getRequiredServerEnvVar} from './misc'
 import {linkExpirationTime} from './prisma.server'
 
 const loginInfoStorage = createCookieSessionStorage({
   cookie: {
     name: 'KCD_login',
+    secure: true,
     secrets: [getRequiredServerEnvVar('SESSION_SECRET')],
     sameSite: 'lax',
     path: '/',
-    maxAge: linkExpirationTime,
+    maxAge: linkExpirationTime / 1000,
     httpOnly: true,
   },
 })
@@ -26,8 +28,16 @@ async function getLoginInfoSession(request: Request) {
   return {
     getEmail: () => session.get('email') as string | undefined,
     setEmail: (email: string) => session.set('email', email),
-    getMagicLink: () => session.get('magicLink') as string | undefined,
-    setMagicLink: (magicLink: string) => session.set('magicLink', magicLink),
+
+    // NOTE: the magic link needs to be encrypted in the session because the
+    // end user can access the cookie and see the plaintext magic link which
+    // would allow them to login as any user 😬
+    getMagicLink: () => {
+      const link = session.get('magicLink') as string | undefined
+      if (link) return decrypt(link)
+    },
+    setMagicLink: (magicLink: string) =>
+      session.set('magicLink', encrypt(magicLink)),
     unsetMagicLink: () => session.unset('magicLink'),
     getMagicLinkVerified: () =>
       session.get('magicLinkVerified') as boolean | undefined,

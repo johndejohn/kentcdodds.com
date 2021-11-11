@@ -36,10 +36,20 @@ async function getSitemapXml(request: Request, remixContext: EntryContext) {
         }
         let parentId = manifestEntry.parentId
         let parent = parentId ? remixContext.manifest.routes[parentId] : null
-        let path = removeTrailingSlash(manifestEntry.path)
+
+        let path
+        if (manifestEntry.path) {
+          path = removeTrailingSlash(manifestEntry.path)
+        } else if (manifestEntry.index) {
+          path = ''
+        } else {
+          return
+        }
+
         while (parent) {
           // the root path is '/', so it messes things up if we add another '/'
-          path = `${removeTrailingSlash(parent.path)}/${path}`
+          const parentPath = parent.path ? removeTrailingSlash(parent.path) : ''
+          path = `${parentPath}/${path}`
           parentId = parent.parentId
           parent = parentId ? remixContext.manifest.routes[parentId] : null
         }

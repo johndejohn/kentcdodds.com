@@ -18,10 +18,11 @@ const sessionIdKey = '__session_id__'
 const sessionStorage = createCookieSessionStorage({
   cookie: {
     name: 'KCD_root_session',
+    secure: true,
     secrets: [getRequiredServerEnvVar('SESSION_SECRET')],
     sameSite: 'lax',
     path: '/',
-    maxAge: sessionExpirationTime,
+    maxAge: sessionExpirationTime / 1000,
     httpOnly: true,
   },
 })
@@ -77,7 +78,7 @@ async function getSession(request: Request) {
     },
     getSessionId,
     unsetSessionId,
-    singIn: async (user: Pick<User, 'id'>) => {
+    signIn: async (user: Pick<User, 'id'>) => {
       const userSession = await createSession({userId: user.id})
       session.set(sessionIdKey, userSession.id)
     },
@@ -152,7 +153,7 @@ async function getUserSessionFromMagicLink(request: Request) {
   if (!user) return null
 
   const session = await getSession(request)
-  await session.singIn(user)
+  await session.signIn(user)
   return session
 }
 

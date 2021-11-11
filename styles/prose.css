@@ -163,6 +163,14 @@ pre {
   margin-left: -200px;
 }
 
+.prose callout-muted a,
+.prose callout-info a,
+.prose callout-warning a,
+.prose callout-danger a,
+.prose callout-success a {
+  text-decoration: underline;
+}
+
 .prose callout-muted p,
 .prose callout-info p,
 .prose callout-warning p,
@@ -206,16 +214,16 @@ pre {
   font-size: 1.2rem;
 }
 
-.prose callout-muted.asside,
-.prose callout-info.asside,
-.prose callout-warning.asside,
-.prose callout-danger.asside,
-.prose callout-success.asside,
-.prose callout-muted.asside *,
-.prose callout-info.asside *,
-.prose callout-warning.asside *,
-.prose callout-danger.asside *,
-.prose callout-success.asside * {
+.prose callout-muted.aside,
+.prose callout-info.aside,
+.prose callout-warning.aside,
+.prose callout-danger.aside,
+.prose callout-success.aside,
+.prose callout-muted.aside *,
+.prose callout-info.aside *,
+.prose callout-warning.aside *,
+.prose callout-danger.aside *,
+.prose callout-success.aside * {
   font-size: 0.875rem;
 }
 
@@ -616,4 +624,24 @@ pre {
 .prose .tweet-embed .tweet-ref-metadata-domain svg path,
 .prose .tweet-embed .tweet-stats a:not(.tweet-link) svg path {
   fill: currentColor;
+}
+
+/* Some of our blog posts have inline demos that could use some nicer styling */
+/* IDEA: In the future, it would be nice for those blog posts to have a css file that the post could reference as a link */
+.prose .demo {
+  display: flex;
+  justify-content: center;
+  background-color: var(--bg-alt);
+  padding: 2rem;
+}
+.prose .demo button,
+.prose .demo input {
+  padding: revert;
+  margin: revert;
+  display: revert;
+  border: revert;
+  background: revert;
+  appearance: revert;
+  line-height: revert;
+  color: revert;
 }

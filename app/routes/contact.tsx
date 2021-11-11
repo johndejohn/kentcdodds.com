@@ -109,10 +109,12 @@ export const meta: MetaFunction = ({parentsData}) => {
   const {requestInfo} = parentsData.root as RootLoaderData
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title: 'Contact Kent C. Dodds',
       description: 'Send Kent C. Dodds a personal email.',
       url: getUrl(requestInfo),
       image: getGenericSocialImage({
+        origin: requestInfo.origin,
         url: getDisplayUrl(requestInfo),
         featuredImage: 'unsplash/photo-1563225409-127c18758bd5',
         words: `Shoot Kent an email`,
@@ -156,7 +158,7 @@ export default function ContactRoute() {
                   I do my best to respond, but unfortunately I can't always
                   respond to every email I receive. If you have a support
                   request about my open source work, please open an issue
-                  on the GitHub repo instead. If have a support need on one of
+                  on the GitHub repo instead. If you have a support need on one of
                   my courses, please email the team (`}
                 <a href="mailto:team@epicreact.dev">team@epicreact.dev</a>
                 {`, `}

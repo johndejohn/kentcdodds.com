@@ -70,11 +70,13 @@ export const meta: MetaFunction = ({parentsData}) => {
   const {requestInfo} = parentsData.root as RootLoaderData
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title: 'The KCD Community on Discord',
       description:
         'Make friends, share ideas, connect, network, and improve yourself in the KCD Community on Discord',
       url: getUrl(requestInfo),
       image: getGenericSocialImage({
+        origin: requestInfo.origin,
         url: getDisplayUrl(requestInfo),
         featuredImage: images.helmet.id,
         words: `Join the KCD Community on Discord`,
@@ -169,7 +171,7 @@ export default function Discord() {
         arrowUrl="#reasons-to-join"
         arrowLabel="Is this something for me?"
         action={
-          <ButtonLink variant="primary" to={authorizeURL} className="mr-auto">
+          <ButtonLink variant="primary" href={authorizeURL} className="mr-auto">
             Join Discord
           </ButtonLink>
         }
@@ -203,7 +205,7 @@ export default function Discord() {
               {`Here's why you should join the server.`}
             </H2>
 
-            <ButtonLink className="mb-32" variant="primary" to={authorizeURL}>
+            <ButtonLink className="mb-32" variant="primary" href={authorizeURL}>
               Join Discord
             </ButtonLink>
 
@@ -228,7 +230,7 @@ export default function Discord() {
                 discord community is for you. We'll celebrate your sucesses and
                 lament your misfortunes and failures. This community is focused
                 on software development primarily, but we're humans and we
-                embrase that (we even have a channel on parenting!).
+                embrace that (we even have a channel on parenting!).
               `}
             </Paragraph>
             <H6 as="h3" className="mb-4">
@@ -411,7 +413,7 @@ export default function Discord() {
                 Voice and video chats hosted and managed on the KCD Discord
                 server.
               </H2>
-              <ButtonLink variant="primary" to={authorizeURL}>
+              <ButtonLink variant="primary" href={authorizeURL}>
                 Join Discord
               </ButtonLink>
             </div>
@@ -532,7 +534,7 @@ export default function Discord() {
                 better together.
               `}
             </H2>
-            <ButtonLink variant="primary" to={authorizeURL}>
+            <ButtonLink variant="primary" href={authorizeURL}>
               Join Discord
             </ButtonLink>
           </div>
@@ -545,6 +547,7 @@ export default function Discord() {
 }
 
 export function ErrorBoundary({error}: {error: Error}) {
+  console.error(error)
   return (
     <div>
       <h2>Error</h2>

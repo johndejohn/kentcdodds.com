@@ -1,6 +1,6 @@
 import * as React from 'react'
 import {Link} from 'remix'
-import {motion} from 'framer-motion'
+import {motion, useReducedMotion} from 'framer-motion'
 import clsx from 'clsx'
 import type {Team} from '@prisma/client'
 import {useRootData} from '~/utils/use-root-data'
@@ -41,6 +41,9 @@ function Stat({
 
   const MotionEl = onClick ? motion.button : motion.div
 
+  const shouldReduceMotion = useReducedMotion()
+  const transition = shouldReduceMotion ? {duration: 0} : {}
+
   return (
     <MotionEl
       tabIndex={0}
@@ -54,11 +57,13 @@ function Stat({
       whileHover="hover"
       whileFocus="hover"
       className="relative flex items-center justify-center focus:outline-none origin-right"
+      transition={transition}
       variants={{
         initial: {width: 22},
       }}
     >
       <motion.div
+        transition={transition}
         variants={{
           initial: {
             height: 12 + 24 * percent,
@@ -77,6 +82,7 @@ function Stat({
         )}
       >
         <motion.span
+          transition={transition}
           variants={{
             initial: {opacity: 0, scale: 1, y: 0, fontSize: 0},
             hover: {
@@ -98,6 +104,7 @@ function Stat({
       {isUsersTeam ? (
         <motion.div
           className="absolute left-1/2 top-0 border-team-current rounded-md"
+          transition={transition}
           variants={{
             initial: {
               width: 22,
@@ -118,6 +125,7 @@ function Stat({
           }}
         >
           <motion.img
+            transition={transition}
             variants={{
               initial: {borderWidth: 2, borderRadius: 4 - 2},
               hover: {borderWidth: 4, borderRadius: 8 - 3},
@@ -135,12 +143,14 @@ function Stat({
 function TeamStats({
   totalReads,
   rankings,
-  direction = 'up',
+  direction,
+  pull,
   onStatClick,
 }: {
   totalReads: string
   rankings: Array<ReadRanking>
   direction: 'up' | 'down'
+  pull: 'left' | 'right'
   onStatClick?: (team: Team) => void
 }) {
   const [altDown, setAltDown] = React.useState(false)
@@ -169,14 +179,18 @@ function TeamStats({
     >
       <div
         className={clsx(
-          'absolute right-0 h-8 text-sm opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition',
+          'absolute flex gap-2 items-center h-8 text-sm opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition',
           {
-            '-top-8': direction === 'down',
+            'right-0': pull === 'right',
+            'left-0': pull === 'left',
+            '-top-9': direction === 'down',
             '-bottom-20': direction === 'up',
           },
         )}
       >
-        <span title="Total reads">{totalReads} </span>
+        <span title="Total reads" className="text-primary">
+          {totalReads}{' '}
+        </span>
         <Link
           className="text-secondary underlined hover:text-team-current focus:text-team-current"
           to="/teams#read-rankings"
@@ -196,9 +210,11 @@ function TeamStats({
         {rankings.map(ranking => (
           <li key={ranking.team} className="h-0 overflow-visible">
             <Stat
+              // trigger a re-render if the percentage changes
+              key={ranking.percent}
               {...ranking}
               direction={direction}
-              display={altDown ? 'ranking' : 'reads'}
+              display={altDown ? 'reads' : 'ranking'}
               onClick={
                 onStatClick ? () => onStatClick(ranking.team) : undefined
               }

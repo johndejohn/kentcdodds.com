@@ -64,11 +64,13 @@ export const meta: MetaFunction = ({parentsData}) => {
   const {requestInfo} = parentsData.root as RootLoaderData
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title: 'About Kent C. Dodds',
       description: 'Get to know Kent C. Dodds',
       keywords: 'about, kent, kent c. dodds, kent dodds',
       url: getUrl(requestInfo),
       image: getSocialImageWithPreTitle({
+        origin: requestInfo.origin,
         url: getDisplayUrl(requestInfo),
         featuredImage: 'kent/video-stills/snowboard-butter',
         preTitle: 'Get to know',
@@ -98,7 +100,7 @@ function AboutIndex() {
         arrowLabel="Get to know more about me"
       />
 
-      <Grid className="mb-24 mt-16 lg:mb-48">
+      <Grid as="main" className="mb-24 mt-16 lg:mb-48">
         <div className="col-span-full">
           <FullScreenYouTubeEmbed
             autoplay={searchParams.has('autoplay')}

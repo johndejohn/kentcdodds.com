@@ -11,11 +11,16 @@ import {
   useMenuButtonContext,
 } from '@reach/menu-button'
 import {useEffect} from 'react'
-import {AnimatePresence, motion, useAnimation} from 'framer-motion'
+import {
+  AnimatePresence,
+  motion,
+  useAnimation,
+  useReducedMotion,
+} from 'framer-motion'
 import type {User} from '@prisma/client'
 import {kodyProfiles} from '~/images'
 import {Theme, Themed, useTheme} from '~/utils/theme-provider'
-import {getAvatar, OptionalTeam} from '~/utils/misc'
+import type {OptionalTeam} from '~/utils/misc'
 import {SunIcon} from './icons/sun-icon'
 import {MoonIcon} from './icons/moon-icon'
 import {TeamCircle} from './team-circle'
@@ -82,13 +87,13 @@ function DarkModeToggle({variant = 'icon'}: {variant?: 'icon' | 'labelled'}) {
       {/* note that the duration is longer then the one on body, controlling the bg-color */}
       <div className="relative w-8 h-8">
         <span
-          className="absolute inset-0 text-black dark:text-white transform dark:rotate-0 rotate-90 transition duration-1000"
+          className="motion-reduce:duration-[0s] absolute inset-0 text-black dark:text-white transform dark:rotate-0 rotate-90 transition duration-1000"
           style={iconTransformOrigin}
         >
           <MoonIcon />
         </span>
         <span
-          className="absolute inset-0 text-black dark:text-white transform dark:-rotate-90 rotate-0 transition duration-1000"
+          className="motion-reduce:duration-[0s] absolute inset-0 text-black dark:text-white transform dark:-rotate-90 rotate-0 transition duration-1000"
           style={iconTransformOrigin}
         >
           <SunIcon />
@@ -107,6 +112,7 @@ function DarkModeToggle({variant = 'icon'}: {variant?: 'icon' | 'labelled'}) {
 
 function MobileMenuList() {
   const {isExpanded} = useMenuButtonContext()
+  const shouldReduceMotion = useReducedMotion()
 
   useEffect(() => {
     if (isExpanded) {
@@ -139,7 +145,10 @@ function MobileMenuList() {
             initial={{y: -50, opacity: 0}}
             animate={{y: 0, opacity: 1}}
             exit={{y: -50, opacity: 0}}
-            transition={{duration: 0.15, ease: 'linear'}}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.15,
+              ease: 'linear',
+            }}
             className="bg-primary flex flex-col pb-12 h-full border-t border-gray-200 dark:border-gray-600 overflow-y-scroll"
           >
             <MenuItems className="p-0 bg-transparent border-none">
@@ -180,6 +189,8 @@ const bottomVariants = {
 }
 
 function MobileMenu() {
+  const shouldReduceMotion = useReducedMotion()
+  const transition = shouldReduceMotion ? {duration: 0} : {}
   return (
     <Menu>
       {({isExpanded}) => {
@@ -197,6 +208,7 @@ function MobileMenu() {
                 <motion.rect
                   animate={state}
                   variants={topVariants}
+                  transition={transition}
                   x="6"
                   y="9"
                   width="20"
@@ -207,6 +219,7 @@ function MobileMenu() {
                 <motion.rect
                   animate={state}
                   variants={centerVariants}
+                  transition={transition}
                   x="6"
                   y="15"
                   width="20"
@@ -217,6 +230,7 @@ function MobileMenu() {
                 <motion.rect
                   animate={state}
                   variants={bottomVariants}
+                  transition={transition}
                   x="6"
                   y="21"
                   width="20"
@@ -259,6 +273,7 @@ function ProfileButton({
 }) {
   const controls = useAnimation()
   const [ref, state] = useElementState()
+  const shouldReduceMotion = useReducedMotion()
 
   React.useEffect(() => {
     void controls.start((_, {rotate = 0}) => {
@@ -269,16 +284,18 @@ function ProfileButton({
             : rotate + 360
           : 360
 
-      return {
-        rotate: [rotate, target],
-        transition: {
-          duration: durations[state],
-          repeat: Infinity,
-          ease: 'linear',
-        },
-      }
+      return shouldReduceMotion
+        ? {}
+        : {
+            rotate: [rotate, target],
+            transition: {
+              duration: durations[state],
+              repeat: Infinity,
+              ease: 'linear',
+            },
+          }
     })
-  }, [state, controls])
+  }, [state, controls, shouldReduceMotion])
 
   return (
     <Link
@@ -307,16 +324,7 @@ function ProfileButton({
 function Navbar() {
   const [team] = useTeam()
   const {requestInfo, userInfo, user} = useRootData()
-  const avatar = userInfo
-    ? userInfo.avatar
-    : requestInfo.session.email
-    ? {
-        src: getAvatar(requestInfo.session.email, {
-          fallback: kodyProfiles[team].src,
-        }),
-        alt: 'Profile',
-      }
-    : kodyProfiles[team]
+  const avatar = userInfo ? userInfo.avatar : kodyProfiles[team]
 
   return (
     <div className="px-5vw py-9 lg:py-12">

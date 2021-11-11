@@ -1,5 +1,5 @@
 import * as React from 'react'
-import type {HeadersFunction} from 'remix'
+import type {HeadersFunction, LinkProps} from 'remix'
 import {Link} from 'remix'
 import type {NonNullProperties, User} from '~/types'
 import {Team} from '@prisma/client'
@@ -9,6 +9,7 @@ import {images} from '../images'
 import type {getEnv} from './env.server'
 
 const teams: Array<Team> = Object.values(Team)
+const isTeam = (team?: string): team is Team => teams.includes(team as Team)
 const unknownTeam = {UNKNOWN: 'UNKNOWN'} as const
 const optionalTeams = {...Team, ...unknownTeam}
 type OptionalTeam = typeof optionalTeams[keyof typeof optionalTeams]
@@ -19,12 +20,18 @@ function getAvatar(
   {
     size = defaultAvatarSize,
     fallback = images.kodyProfileWhite({resize: {width: size}}),
-  }: {size?: number; fallback?: string | null} = {},
+    origin,
+  }: {size?: number; fallback?: string | null; origin?: string} = {},
 ) {
   const hash = md5(email)
   const url = new URL(`https://www.gravatar.com/avatar/${hash}`)
   url.searchParams.set('size', String(size))
-  if (fallback) url.searchParams.set('default', fallback)
+  if (fallback) {
+    if (origin && fallback.startsWith('/')) {
+      fallback = `${origin}${fallback}`
+    }
+    url.searchParams.set('default', fallback)
+  }
   return url.toString()
 }
 
@@ -36,10 +43,14 @@ const avatarFallbacks: Record<Team, (width: number) => string> = {
 
 function getAvatarForUser(
   {email, team, firstName}: Pick<User, 'email' | 'team' | 'firstName'>,
-  {size = defaultAvatarSize}: {size?: number} = {},
+  {size = defaultAvatarSize, origin}: {size?: number; origin?: string} = {},
 ) {
   return {
-    src: getAvatar(email, {fallback: avatarFallbacks[team](size), size}),
+    src: getAvatar(email, {
+      fallback: avatarFallbacks[team](size),
+      size,
+      origin,
+    }),
     alt: firstName,
   }
 }
@@ -67,14 +78,52 @@ type AnchorProps = React.DetailedHTMLProps<
 
 const AnchorOrLink = React.forwardRef<
   HTMLAnchorElement,
-  AnchorProps & {prefetch?: 'intent' | 'none' | 'render'; reload?: boolean}
+  AnchorProps & {
+    reload?: boolean
+    to?: LinkProps['to']
+    prefetch?: LinkProps['prefetch']
+  }
 >(function AnchorOrLink(props, ref) {
-  const {href = '', download, reload = false, prefetch, ...rest} = props
-  if (reload || download || href.startsWith('http') || href.startsWith('#')) {
-    // eslint-disable-next-line jsx-a11y/anchor-has-content
-    return <a {...rest} download={download} href={href} ref={ref} />
+  const {
+    to,
+    href,
+    download,
+    reload = false,
+    prefetch,
+    children,
+    ...rest
+  } = props
+  let toUrl = ''
+  let shouldUserRegularAnchor = reload || download
+
+  if (!shouldUserRegularAnchor && typeof href === 'string') {
+    shouldUserRegularAnchor = href.startsWith('http') || href.startsWith('#')
+  }
+
+  if (!shouldUserRegularAnchor && typeof to === 'string') {
+    toUrl = to
+    shouldUserRegularAnchor = to.startsWith('http')
+  }
+
+  if (!shouldUserRegularAnchor && typeof to === 'object') {
+    toUrl = `${to.pathname ?? ''}${to.hash ? `#${to.hash}` : ''}${
+      to.search ? `?${to.search}` : ''
+    }`
+    shouldUserRegularAnchor = to.pathname?.startsWith('http')
+  }
+
+  if (shouldUserRegularAnchor) {
+    return (
+      <a {...rest} download={download} href={href ?? toUrl} ref={ref}>
+        {children}
+      </a>
+    )
   } else {
-    return <Link prefetch={prefetch} to={href} {...rest} ref={ref} />
+    return (
+      <Link prefetch={prefetch} to={to ?? href ?? ''} {...rest} ref={ref}>
+        {children}
+      </Link>
+    )
   }
 })
 
@@ -83,6 +132,18 @@ function formatTime(seconds: number) {
 }
 
 const formatNumber = (num: number) => new Intl.NumberFormat().format(num)
+
+function formatAbbreviatedNumber(num: number) {
+  return num < 1_000
+    ? formatNumber(num)
+    : num < 1_000_000
+    ? `${formatNumber(Number((num / 1_000).toFixed(2)))}k`
+    : num < 1_000_000_000
+    ? `${formatNumber(Number((num / 1_000_000).toFixed(2)))}m`
+    : num < 1_000_000_000_000
+    ? `${formatNumber(Number((num / 1_000_000_000).toFixed(2)))}b`
+    : 'a lot'
+}
 
 function formatDate(dateString: string) {
   return dateFns.format(
@@ -224,8 +285,35 @@ function useUpdateQueryStringValueWithoutNavigation(
     // on the client and we're just doing client-side filtering of data we
     // already have. So we manually call `window.history.pushState` to avoid
     // the router from triggering the loader.
-    window.history.pushState(null, '', newUrl)
+    window.history.replaceState(null, '', newUrl)
   }, [queryKey, queryValue])
+}
+
+function debounce<Callback extends (...args: Array<unknown>) => void>(
+  fn: Callback,
+  delay: number,
+) {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  return (...args: Parameters<Callback>) => {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      fn(...args)
+    }, delay)
+  }
+}
+
+function useDebounce<Callback extends (...args: Array<unknown>) => unknown>(
+  callback: Callback,
+  delay: number,
+) {
+  const callbackRef = React.useRef(callback)
+  React.useEffect(() => {
+    callbackRef.current = callback
+  })
+  return React.useMemo(
+    () => debounce((...args) => callbackRef.current(...args), delay),
+    [delay],
+  )
 }
 
 const reuseUsefulLoaderHeaders: HeadersFunction = ({loaderHeaders}) => {
@@ -240,6 +328,36 @@ const reuseUsefulLoaderHeaders: HeadersFunction = ({loaderHeaders}) => {
   return headers
 }
 
+function callAll<Args extends Array<unknown>>(
+  ...fns: Array<((...args: Args) => unknown) | undefined>
+) {
+  return (...args: Args) => fns.forEach(fn => fn?.(...args))
+}
+
+function useDoubleCheck() {
+  const [doubleCheck, setDoubleCheck] = React.useState(false)
+
+  function getButtonProps(props?: JSX.IntrinsicElements['button']) {
+    const onBlur: JSX.IntrinsicElements['button']['onBlur'] = () =>
+      setDoubleCheck(false)
+
+    const onClick: JSX.IntrinsicElements['button']['onClick'] = doubleCheck
+      ? undefined
+      : e => {
+          e.preventDefault()
+          setDoubleCheck(true)
+        }
+
+    return {
+      ...props,
+      onBlur: callAll(onBlur, props?.onBlur),
+      onClick: callAll(onClick, props?.onClick),
+    }
+  }
+
+  return {doubleCheck, getButtonProps}
+}
+
 export {
   getAvatar,
   getAvatarForUser,
@@ -250,6 +368,8 @@ export {
   assertNonNull,
   useUpdateQueryStringValueWithoutNavigation,
   useSSRLayoutEffect,
+  useDoubleCheck,
+  useDebounce,
   typedBoolean,
   getRequiredServerEnvVar,
   getRequiredGlobalEnvVar,
@@ -262,11 +382,13 @@ export {
   reuseUsefulLoaderHeaders,
   unknownTeam,
   teams,
+  isTeam,
   teamDisplay,
   teamTextColorClasses,
   formatDate,
   formatTime,
   formatNumber,
+  formatAbbreviatedNumber,
 }
 export {listify} from './listify'
 export type {OptionalTeam}

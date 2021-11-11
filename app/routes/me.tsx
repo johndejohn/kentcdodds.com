@@ -51,7 +51,6 @@ import {getGenericSocialImage, images} from '~/images'
 
 export const handle: KCDHandle = {
   getSitemapEntries: () => null,
-  metas: [{httpEquiv: 'refresh', content: '1740'}],
 }
 
 export const meta: MetaFunction = ({parentsData}) => {
@@ -59,10 +58,12 @@ export const meta: MetaFunction = ({parentsData}) => {
   const domain = new URL(requestInfo.origin).host
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title: `Your account on ${domain}`,
       description: `Personal account information on ${domain}.`,
       url: getUrl(requestInfo),
       image: getGenericSocialImage({
+        origin: requestInfo.origin,
         url: getDisplayUrl(requestInfo),
         featuredImage: images.kodySnowboardingWhite(),
         words: `View your account info on ${domain}`,
@@ -253,7 +254,7 @@ function YouScreen() {
                 name="firstName"
                 label="First name"
                 defaultValue={actionData?.fields.firstName ?? user.firstName}
-                autoComplete="firstName"
+                autoComplete="given-name"
                 required
                 error={actionData?.errors.firstName}
               />
@@ -399,7 +400,7 @@ function YouScreen() {
           <ButtonLink
             variant="secondary"
             download="my-kcd-data.json"
-            to={`${requestInfo.origin}/me/download.json`}
+            href={`${requestInfo.origin}/me/download.json`}
           >
             Download Your Data
           </ButtonLink>
@@ -420,7 +421,7 @@ function YouScreen() {
               variant="danger"
               type="submit"
             >
-              Sign out of your {otherSessionsCount} other{' '}
+              Sign out of {otherSessionsCount}{' '}
               {otherSessionsCount === 1 ? 'session' : 'sessions'}
             </Button>
           </Form>

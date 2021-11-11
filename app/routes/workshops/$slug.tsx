@@ -34,6 +34,7 @@ import {RegistrationPanel} from '~/components/workshop-registration-panel'
 import type {LoaderData as RootLoaderData} from '../../root'
 import {getSocialMetas} from '~/utils/seo'
 import {getSocialImageWithPreTitle} from '~/images'
+import type {WorkshopEvent} from '~/utils/workshop-tickets.server'
 
 export const handle: KCDHandle = {
   getSitemapEntries: async request => {
@@ -100,15 +101,17 @@ export const meta: MetaFunction = ({parentsData, params}) => {
 
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title: workshop ? workshop.title : 'Workshop not found',
       description: workshop ? workshop.description : 'No workshop here :(',
       keywords: workshop ? workshop.categories.join(',') : '',
       ...workshop?.meta,
       url: getUrl(requestInfo),
       image: getSocialImageWithPreTitle({
+        origin: requestInfo.origin,
         url: getDisplayUrl(requestInfo),
         featuredImage: 'kent/kent-workshopping-at-underbelly',
-        preTitle: 'Check out this workshops',
+        preTitle: 'Check out this workshop',
         title: workshop ? workshop.title : 'Workshop not found',
       }),
     }),
@@ -148,7 +151,7 @@ function restartArray<ArrayType>(array: Array<ArrayType>, startIndex: number) {
 
 export default function WorkshopScreen() {
   const params = useParams()
-  const {workshopEvents: allWorkshopEvents, workshops} = useWorkshopsData()
+  const {workshopEvents: titoEvents, workshops} = useWorkshopsData()
   const data = useLoaderData<LoaderData>()
   const workshop = workshops.find(w => w.slug === params.slug)
 
@@ -159,10 +162,10 @@ export default function WorkshopScreen() {
     return <div>Oh no... Email Kent</div>
   }
 
-  const workshopEvents = allWorkshopEvents.filter(
-    e => e.metadata.workshopSlug === params.slug,
-  )
-
+  const workshopEvents: Array<Workshop['events'][number] | WorkshopEvent> = [
+    ...workshop.events,
+    ...titoEvents.filter(e => e.metadata.workshopSlug === params.slug),
+  ]
   // restartArray allows us to make sure that the same workshops don't always appear in the list
   // without having to do something complicated to get a deterministic selection between server/client.
   const otherWorkshops = restartArray(
@@ -170,7 +173,7 @@ export default function WorkshopScreen() {
     workshops.indexOf(workshop),
   )
   const scheduledWorkshops = otherWorkshops.filter(w =>
-    allWorkshopEvents.some(e => e.metadata.workshopSlug === w.slug),
+    titoEvents.some(e => e.metadata.workshopSlug === w.slug),
   )
   const similarWorkshops = otherWorkshops.filter(w =>
     w.categories.some(c => workshop.categories.includes(c)),
@@ -273,7 +276,7 @@ export default function WorkshopScreen() {
                 <H2 className="mb-16" variant="secondary" as="p">
                   {`Here's why you should register for the workshop.`}
                 </H2>
-                <ButtonLink to={registerLink}>Register here</ButtonLink>
+                <ButtonLink href={registerLink}>Register here</ButtonLink>
               </div>
 
               <div className="col-span-full lg:col-span-5 lg:col-start-8 lg:mr-12">
@@ -306,7 +309,7 @@ export default function WorkshopScreen() {
         </div>
 
         <div className="flex flex-col col-span-full items-stretch justify-end mb-16 lg:col-span-4 lg:items-end lg:justify-center">
-          <ButtonLink to={registerLink}>Register here</ButtonLink>
+          <ButtonLink href={registerLink}>Register here</ButtonLink>
         </div>
 
         {workshop.topicHTMLs.length ? (
@@ -435,7 +438,7 @@ export default function WorkshopScreen() {
             <div key={idx} className="col-span-full mb-4 md:col-span-4 lg:mb-6">
               <WorkshopCard
                 workshop={altWorkshop}
-                workshopEvent={allWorkshopEvents.find(
+                titoEvents={titoEvents.filter(
                   e => e.metadata.workshopSlug === altWorkshop.slug,
                 )}
               />

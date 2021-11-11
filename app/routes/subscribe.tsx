@@ -20,10 +20,12 @@ export const meta: MetaFunction = ({parentsData}) => {
   const {requestInfo} = parentsData.root as RootLoaderData
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title: `Subscribe to the KCD Mailing List`,
       description: `Get weekly insights, ideas, and proven coding practices from the KCD Mailing List`,
       url: getUrl(requestInfo),
       image: getGenericSocialImage({
+        origin: requestInfo.origin,
         url: getDisplayUrl(requestInfo),
         featuredImage: images.snowboard(),
         words: `Subscribe to the KCD Mailing List`,
@@ -63,7 +65,7 @@ export default function SubscribeScreen() {
         arrowUrl="#why"
         arrowLabel="Why should I?"
         action={
-          <ButtonLink variant="primary" to="#subscribe-form">
+          <ButtonLink variant="primary" href="#subscribe-form">
             <MailIcon /> Subscribe
           </ButtonLink>
         }
@@ -100,7 +102,7 @@ export default function SubscribeScreen() {
             <ButtonLink
               className="mb-32"
               variant="primary"
-              to="#subscribe-form"
+              href="#subscribe-form"
             >
               <MailIcon /> Subscribe
             </ButtonLink>

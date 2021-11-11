@@ -1,7 +1,7 @@
 import * as React from 'react'
 import clsx from 'clsx'
 import {Link, LinkProps} from 'react-router-dom'
-import {motion, Variant} from 'framer-motion'
+import {motion, useReducedMotion, Variant} from 'framer-motion'
 import {ArrowIcon, ArrowIconProps} from './icons/arrow-icon'
 import {H6} from './typography'
 import {ElementState, useElementState} from './hooks/use-element-state'
@@ -12,49 +12,49 @@ const arrowVariants: Record<
 > = {
   down: {
     initial: {y: 0},
-    hover: {y: 8},
+    hover: {y: 4},
     focus: {
-      y: [0, 8, 0],
+      y: [0, 4, 0],
       transition: {repeat: Infinity},
     },
-    active: {y: 24},
+    active: {y: 12},
   },
   up: {
     initial: {y: 0},
-    hover: {y: -8},
+    hover: {y: -4},
     focus: {
-      y: [0, -8, 0],
+      y: [0, -4, 0],
       transition: {repeat: Infinity},
     },
-    active: {y: -24},
+    active: {y: -12},
   },
   left: {
     initial: {x: 0},
-    hover: {x: -8},
+    hover: {x: -4},
     focus: {
-      x: [0, -8, 0],
+      x: [0, -4, 0],
       transition: {repeat: Infinity},
     },
-    active: {x: -24},
+    active: {x: -12},
   },
   right: {
     initial: {x: 0},
-    hover: {x: 8},
+    hover: {x: 4},
     focus: {
-      x: [0, 8, 0],
+      x: [0, 4, 0],
       transition: {repeat: Infinity},
     },
-    active: {x: 24},
+    active: {x: 12},
   },
   'top-right': {
     initial: {x: 0, y: 0},
-    hover: {x: 8, y: -8},
+    hover: {x: 4, y: -4},
     focus: {
-      x: [0, 8, 0],
-      y: [0, -8, 0],
+      x: [0, 4, 0],
+      y: [0, -4, 0],
       transition: {repeat: Infinity},
     },
-    active: {x: 24, y: -24},
+    active: {x: 12, y: -12},
   },
 }
 
@@ -66,9 +66,9 @@ type ArrowButtonBaseProps = {
 }
 
 type ArrowLinkProps = {
-  to: LinkProps['to']
   direction?: ArrowIconProps['direction']
-} & ArrowButtonBaseProps & {prefetch?: 'intent' | 'render' | 'none'}
+} & ({href?: string; to?: never} | {href?: never; to: LinkProps['to']}) &
+  ArrowButtonBaseProps & {prefetch?: 'intent' | 'render' | 'none'}
 
 type ArrowButtonProps = {
   onClick?: JSX.IntrinsicElements['button']['onClick']
@@ -97,6 +97,7 @@ function ArrowButtonContent({
 }: Pick<ArrowButtonBaseProps, 'children' | 'direction'>) {
   const circumference = 28 * 2 * Math.PI
   const strokeDasharray = `${circumference} ${circumference}`
+  const shouldReduceMotion = useReducedMotion()
 
   return (
     <>
@@ -134,12 +135,18 @@ function ArrowButtonContent({
                 focus: {strokeDashoffset: 0},
                 active: {strokeDashoffset: 0},
               }}
-              transition={{damping: 0}}
+              transition={{
+                damping: 0,
+                ...(shouldReduceMotion ? {duration: 0} : null),
+              }}
             />
           </svg>
         </div>
 
-        <motion.span variants={arrowVariants[direction]}>
+        <motion.span
+          transition={shouldReduceMotion ? {duration: 0} : {}}
+          variants={shouldReduceMotion ? {} : arrowVariants[direction]}
+        >
           <ArrowIcon direction={direction} />
         </motion.span>
       </div>
@@ -153,6 +160,7 @@ function ArrowButtonContent({
 
 function ArrowButton({onClick, type, ...props}: ArrowButtonProps) {
   const [ref, state] = useElementState()
+  const shouldReduceMotion = useReducedMotion()
 
   return (
     <motion.button
@@ -161,6 +169,7 @@ function ArrowButton({onClick, type, ...props}: ArrowButtonProps) {
       {...getBaseProps(props)}
       ref={ref}
       animate={state}
+      transition={shouldReduceMotion ? {duration: 0} : {}}
     >
       <ArrowButtonContent {...props} />
     </motion.button>
@@ -169,30 +178,45 @@ function ArrowButton({onClick, type, ...props}: ArrowButtonProps) {
 
 const MotionLink = motion(Link)
 
-function ArrowLink({to, ...props}: ArrowLinkProps) {
+function ArrowLink({to, href, ...props}: ArrowLinkProps) {
   const [ref, state] = useElementState()
+  const shouldReduceMotion = useReducedMotion()
 
-  if (typeof to === 'string' && (to.startsWith('http') || to.startsWith('#'))) {
+  if (href) {
     return (
-      <motion.a href={to} {...getBaseProps(props)} ref={ref} animate={state}>
+      <motion.a
+        href={href}
+        {...getBaseProps(props)}
+        ref={ref}
+        animate={state}
+        transition={shouldReduceMotion ? {duration: 0} : {}}
+      >
         <ArrowButtonContent {...props} />
       </motion.a>
     )
+  } else if (to) {
+    return (
+      <MotionLink
+        to={to}
+        {...getBaseProps(props)}
+        ref={ref}
+        animate={state}
+        transition={shouldReduceMotion ? {duration: 0} : {}}
+      >
+        <ArrowButtonContent {...props} />
+      </MotionLink>
+    )
   }
-
-  return (
-    <MotionLink to={to} {...getBaseProps(props)} ref={ref} animate={state}>
-      <ArrowButtonContent {...props} />
-    </MotionLink>
-  )
+  throw new Error('Must provide either to or href to ArrowLink')
 }
 
 function BackLink({
   to,
   className,
   children,
-}: Pick<ArrowLinkProps, 'to' | 'className' | 'children'>) {
+}: {to: LinkProps['to']} & Pick<ArrowLinkProps, 'className' | 'children'>) {
   const [ref, state] = useElementState()
+  const shouldReduceMotion = useReducedMotion()
   return (
     <MotionLink
       to={to}
@@ -202,8 +226,12 @@ function BackLink({
       )}
       ref={ref}
       animate={state}
+      transition={shouldReduceMotion ? {duration: 0} : {}}
     >
-      <motion.span variants={arrowVariants.left}>
+      <motion.span
+        variants={shouldReduceMotion ? {} : arrowVariants.left}
+        transition={shouldReduceMotion ? {duration: 0} : {}}
+      >
         <ArrowIcon direction="left" />
       </motion.span>
       <H6 as="span">{children}</H6>

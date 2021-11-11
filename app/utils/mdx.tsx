@@ -19,16 +19,17 @@ import {
   getSocialImageWithPreTitle,
 } from '~/images'
 import {Themed} from './theme-provider'
+import {markdownToHtmlUnwrapped, stripHtml} from './markdown.server'
 
 type CachifiedOptions = {
-  forceFresh?: boolean
+  forceFresh?: boolean | string
   request?: Request
   timings?: Timings
   maxAge?: number
   expires?: Date
 }
 
-const defaultMaxAge = 1000 * 60 * 60 * 24 * 7
+const defaultMaxAge = 1000 * 60 * 60 * 24 * 30
 
 const getCompiledKey = (contentDir: string, slug: string) =>
   `${contentDir}:${slug}:compiled`
@@ -201,6 +202,21 @@ async function compileMdxCached({
             )
           }
         }
+        if (compiledPage.frontmatter.bannerCredit) {
+          const credit = await markdownToHtmlUnwrapped(
+            compiledPage.frontmatter.bannerCredit,
+          )
+          compiledPage.frontmatter.bannerCredit = credit
+          const noHtml = await stripHtml(credit)
+          if (!compiledPage.frontmatter.bannerAlt) {
+            compiledPage.frontmatter.bannerAlt = noHtml
+              .replace(/(photo|image)/i, '')
+              .trim()
+          }
+          if (!compiledPage.frontmatter.bannerTitle) {
+            compiledPage.frontmatter.bannerTitle = noHtml
+          }
+        }
         return {
           ...compiledPage,
           slug,
@@ -216,6 +232,22 @@ async function compileMdxCached({
     void redisCache.del(key)
   }
   return page
+}
+
+function getBannerAltProp(frontmatter: MdxPage['frontmatter']) {
+  return (
+    frontmatter.bannerAlt ??
+    frontmatter.bannerTitle ??
+    frontmatter.bannerCredit ??
+    frontmatter.title ??
+    'Post banner'
+  )
+}
+
+function getBannerTitleProp(frontmatter: MdxPage['frontmatter']) {
+  return (
+    frontmatter.bannerTitle ?? frontmatter.bannerAlt ?? frontmatter.bannerCredit
+  )
 }
 
 async function getBlurDataUrl(cloudinaryId: string) {
@@ -275,11 +307,13 @@ function mdxPageMeta({
     const {keywords = [], ...extraMeta} = data.page.frontmatter.meta ?? {}
     return {
       ...getSocialMetas({
+        origin: requestInfo.origin,
         title: data.page.frontmatter.title,
         description: data.page.frontmatter.description,
         keywords: keywords.join(', '),
         url: getUrl(requestInfo),
         image: getSocialImageWithPreTitle({
+          origin: requestInfo.origin,
           url: getDisplayUrl(requestInfo),
           featuredImage:
             data.page.frontmatter.bannerCloudinaryId ??
@@ -390,4 +424,6 @@ export {
   getBlogMdxListItems,
   mdxPageMeta,
   useMdxComponent,
+  getBannerTitleProp,
+  getBannerAltProp,
 }

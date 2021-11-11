@@ -13,6 +13,11 @@ translations:
     author:
       name: Diego Razquin
       link: https://twitter.com/TheRaaskin
+  - language: Greek
+    link: https://medium.com/@athanasu/how-i-built-a-modern-website-in-2021-greek-translation-7d1405edc932
+    author:
+      name: George Athanasoulias
+      link: https://www.linkedin.com/in/athanasu/
 meta:
   keywords:
     - react
@@ -42,26 +47,50 @@ can do for your learning and advancement as a software engineer by reading
 [Introducing the new kentcdodds.com](/blog/introducing-the-new-kentcdodds.com)
 first.
 
+## Context
+
+Before we get too far into this I want to make my one thing clear. If this was a
+simple developer's blogfolio site, my tech choices could be labeled as
+over-engineering and I would agree. However, I wanted to build an above and
+beyond experience, so I had to make thoughtful architectural decisions. What I'm
+doing on this site could definitely _not_ be done with wordpress and a CDN 😆
+
+If you're a beginner looking for how to build your personal website, this blog
+post is definitely not the place to learn that. If I were to build a simple
+personal website, I would still use [Remix.run](https://remix.run), but I would
+probably have it running on netlify serverless functions and write the content
+as markdown which has built-in support in Remix. That would be drastically
+simpler.
+
+But again, that's not what kentcdodds.com is. If you're interested in how to
+productively build a maintainable website using modern tools that is fast all
+over the world despite every user getting content that's completely unique to
+them, then please continue.
+
+Oh, and one more thing to give context on what this site can do:
+
+https://youtu.be/7H2VsJb8LgY
+
 ## Stats overview
 
 First, to give you an idea of the scale we're talking here. So here are a few
 stats:
 
-At the time of this writing (September 2021) here are the
+At the time of this writing (October 2021) here are the
 [`cloc`](https://github.com/AlDanial/cloc) stats:
 
 ```
 $ npx cloc ./app ./types ./tests ./styles ./mocks ./cypress ./prisma ./.github
-     265 text files.
-     256 unique files.
-      16 files ignored.
+     266 text files.
+     257 unique files.
+      15 files ignored.
 
-github.com/AlDanial/cloc v 1.90  T=0.28 s (883.8 files/s, 103677.4 lines/s)
+github.com/AlDanial/cloc v 1.90  T=0.16 s (1601.9 files/s, 194240.7 lines/s)
 -------------------------------------------------------------------------------
 Language                     files          blank        comment           code
 -------------------------------------------------------------------------------
-TypeScript                     217           1955            573          20603
-CSS                             11            195            299           4655
+TypeScript                     219           2020            583          21582
+CSS                             10            198            301           4705
 JSON                             7              0              0            609
 YAML                             2             43             13            232
 SQL                              7             20             25             52
@@ -69,11 +98,28 @@ JavaScript                       4              2              3             42
 Markdown                         1              0              0              2
 TOML                             1              0              2              1
 -------------------------------------------------------------------------------
-SUM:                           250           2215            915          26196
+SUM:                           251           2283            927          27225
 -------------------------------------------------------------------------------
 ```
 
-26k lines of code isn't like your work project where a half dozen teams have
+And to get a sense of the amount of content I have on this site, here's a word
+count:
+
+```
+$ find ./content -type f | xargs wc -w | tail -1
+  280801 total
+```
+
+That's more than the first three Harry Potter books combined.
+
+And adding up the amount of content on the four seasons of
+[the Chats with Kent Podcast](/chats) comes to about 35 hours of content + the
+ever-growing 3 hours of content on the brand new [Call Kent Podcast](/calls)
+which incidentally is also more than it takes to listen to Jim Dale read the
+first three Harry Potter books (unless you listen at 3x [like me](/about)
+#subtlebrag 🙃).
+
+27k lines of code isn't like your work project where a half dozen teams have
 been contributing code for the last 8 years or anything, but it's nothing like
 your blogfolio site either. This is a legit full-stack web application with a
 database, cache, user accounts, etc. I'm fairly confident that this is the
@@ -86,44 +132,81 @@ will tell 😅) for the site.
 
 The first commit was in
 [November 2020](https://github.com/kentcdodds/kentcdodds.com/commit/4fefae1389a7c3faea2fc2b321d0953a80d0e414).
-Most development has taken place in the last 3-4 months. There are ~825 commits
-so far 😅.
+Most development has taken place in the last 4-5 months. There are ~945 commits
+so far 🤯.
+
+<Themed
+  dark={
+    <a
+      href="https://github.com/kentcdodds/kentcdodds.com/graphs/contributors"
+      target="_blank"
+    >
+      <BlogImage
+        cloudinaryId="kentcdodds.com/content/blog/how-i-built-a-modern-website-in-2021/contributor-graph-dark"
+        imgProps={{alt: 'GitHub contributor graph'}}
+      />
+    </a>
+  }
+  light={
+    <a
+      href="https://github.com/kentcdodds/kentcdodds.com/graphs/contributors"
+      target="_blank"
+    >
+      <BlogImage
+        cloudinaryId="kentcdodds.com/content/blog/how-i-built-a-modern-website-in-2021/contributor-graph-light"
+        imgProps={{alt: 'GitHub contributor graph'}}
+      />
+    </a>
+  }
+/>
 
 ## Technology overview
 
 Here are the primary technologies used in this project (in no particular order):
 
-- React: For the UI
-- Remix: Framework for the Client/Server/Routing
-- TypeScript: Typed JavaScript (necessary for any project you plan to maintain)
-- XState: State machine tool making complex component state management simple
-- Prisma: Fantastic ORM with stellar migrations and TypeScript client support
-- Express: Node server framework
-- Cypress: E2E testing framework
-- Jest: Unit/Component testing framework
-- Testing Library: Simple utilities for testing DOM-based user interfaces
-- MSW: Fantastic tool for mocking HTTP requests in the browser/node
-- Tailwind CSS: Utility classes for consistent/maintainable styling
-- Postcss: CSS processor (pretty much just use it for autoprefixer and tailwind)
-- Reach UI: A set of accessible UI components every app needs
-  (accordion/tabs/dialog/etc...)
-- ESBuild: JavaScript bundler (used by Remix and mdx-bundler).
-- mdx-bundler: Tool for compiling and bundling MDX for my site content (blog
-  posts and some simple pages).
-- Octokit: Library making interacting with the GitHub API easier.
-- Framer Motion: Great React Animation library
-- Unified: Markdown/HTML parser/transformer/compiler system.
-- Postgres: Battle tested SQL database
-- Redis: In-memory database–key/value store.
+- [React](https://reactjs.org): For the UI
+- [Remix](https://remix.run): Framework for the Client/Server/Routing
+- [TypeScript](https://www.typescriptlang.org): Typed JavaScript (necessary for
+  any project you plan to maintain)
+- [XState](https://xstate.js.org): State machine tool making complex component
+  state management simple
+- [Prisma](https://www.prisma.io): Fantastic ORM with stellar migrations and
+  TypeScript client support
+- [Express](https://expressjs.com): Node server framework
+- [Cypress](https://cypress.io): E2E testing framework
+- [Jest](https://jestjs.io): Unit/Component testing framework
+- [Testing Library](https://testing-library.com): Simple utilities for testing
+  DOM-based user interfaces
+- [MSW](https://mswjs.io): Fantastic tool for mocking HTTP requests in the
+  browser/node
+- [Tailwind CSS](https://tailwindcss.com): Utility classes for
+  consistent/maintainable styling
+- [Postcss](https://postcss.org/): CSS processor (pretty much just use it for
+  autoprefixer and tailwind)
+- [Reach UI](https://reach.tech/): A set of accessible UI components every app
+  needs (accordion/tabs/dialog/etc...)
+- [ESBuild](https://esbuild.github.io/): JavaScript bundler (used by Remix and
+  mdx-bundler).
+- [mdx-bundler](https://github.com/kentcdodds/mdx-bundler): Tool for compiling
+  and bundling MDX for my site content (blog posts and some simple pages).
+- [Octokit](https://github.com/octokit/octokit.js): Library making interacting
+  with the GitHub API easier.
+- [Framer Motion](https://www.framer.com/motion/): Great React Animation library
+- [Unified](https://unifiedjs.com/): Markdown/HTML parser/transformer/compiler
+  system.
+- [Postgres](https://www.postgresql.org/): Battle tested SQL database
+- [Redis](https://redis.io/): In-memory database–key/value store.
 
 Here are the services this site uses:
 
-- Fly.io: Super hosting platform
-- GitHub Actions: Hosted CI pipeline service
-- Sentry: Error reporting service
-- Cloudinary: Fantastic image hosting and transformation service.
-- Fathom: Privacy-focused ethical analytics service.
-- Metronome: Remix metrics service
+- [Fly.io](https://fly.io): Super hosting platform
+- [GitHub Actions](https://github.com/features/actions): Hosted CI pipeline
+  service
+- [Sentry](https://sentry.io): Error reporting service
+- [Cloudinary](https://cloudinary.com): Fantastic image hosting and
+  transformation service.
+- [Fathom](https://kcd.im/fathom): Privacy-focused ethical analytics service.
+- [Metronome](https://metronome.sh): Remix metrics service
 
 ## Architectural overview
 
@@ -198,7 +281,7 @@ This reduces what used to take 10-25 minutes down to 8 seconds. And it saves me
 computational resources as well because fixing a typo in my content doesn't
 necessitate a rebuild/redeploy/cache bust of the whole site.
 
-<callout-info class="asside">
+<callout-info class="aside">
   I realize that using GitHub as my CMS is a little odd, but wonderful people
   like you contribute improvements to my open source content all the time and I
   appreciate that. So by keeping things in GitHub, that can continue. (Note the
@@ -226,7 +309,7 @@ The Cypress step is further parallelized by splitting my E2E tests into three
 individual containers which split the tests between them to run them as quickly
 as possible.
 
-<callout-muted class="asside">
+<callout-muted class="aside">
   You might notice that there are no arrows coming out of the Cypress step. This
   is intentional and temporary. Currently I do not fail the build if the E2E
   tests fail. So far, I haven't been worried about deploying something that's
@@ -513,7 +596,7 @@ async function cachified<
   cache: Cache
   getFreshValue: () => Promise<Value>
   checkValue?: (value: Value) => boolean
-  forceFresh?: boolean
+  forceFresh?: boolean | string
   request?: Request
   fallbackToCache?: boolean
   timings?: Timings
@@ -529,7 +612,7 @@ async function getPeople({
   forceFresh,
 }: {
   request?: Request
-  forceFresh?: boolean
+  forceFresh?: boolean | string
 }) {
   const allPeople = await cachified({
     cache: redisCache,
@@ -576,13 +659,19 @@ And now for the options:
   runtime type errors. We also use this to check that what we got from
   `getFreshValue` is correct and if it's not then we throw a helpful error
   message (definitely better than a type error).
-- `forceFresh` is what you think. It skips looking at the cache and will call
-  `getFreshValue` even if the value hasn't expired yet.
+- `forceFresh` allows you to skip looking at the cache and will call
+  `getFreshValue` even if the value hasn't expired yet. If you provide a string
+  then it splits that string by `,` and checks whether the `key` is included in
+  that string. If it is then we'll call `getFreshValue`. This is useful for when
+  you're calling a cachified function which calls other cachified functions
+  (like the function that retrieves all the blog mdx files). You can call that
+  function and only refresh _some_ of the cache values, not all of them.
 - `request` is used to determine the default value of `forceFresh`. If the
   request has the query parameter of `?fresh` and the user has the role of
   `ADMIN` (so... just me) then `forceFresh` will default to `true`. This allows
   me to manually refresh the cache for all resources on any page. I don't need
-  to do this very often though.
+  to do this very often though. You can also provide a value of `,`-sparated
+  cache key values to force only _those_ cache values to be refreshed.
 - `fallbackToCache` if we tried to `forceFresh` (so we skipped the cache) and
   getting the fresh value failed, then we might want to fallback to the cached
   value rather than throwing an error. This controls that and defaults to
@@ -954,7 +1043,7 @@ easier with its cookie session abstraction.
 
 ## Remix
 
-![Remix logo](https://res.cloudinary.com/kentcdodds-com/image/upload/kentcdodds.com/content/blog/how-i-built-a-modern-website-in-2021/remix.png)
+![Remix logo](https://res.cloudinary.com/kentcdodds-com/image/upload/kentcdodds.com/content/blog/how-i-built-a-modern-website-in-2021/remix)
 
 Ok folks. Of all tools I'm using, Remix has made the biggest impact on my
 productivity and the performance of my website. Remix enables me to do all this

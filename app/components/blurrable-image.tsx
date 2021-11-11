@@ -7,25 +7,26 @@ function BlurrableImage({
   blurDataUrl,
   ...rest
 }: {
-  img: React.ReactElement<React.ImgHTMLAttributes<HTMLImageElement>>
+  img: JSX.Element &
+    React.ReactElement<React.ImgHTMLAttributes<HTMLImageElement>>
   blurDataUrl?: string
 } & React.HTMLAttributes<HTMLDivElement>) {
   const [visible, setVisible] = React.useState(false)
-  const imgRef = React.useRef<HTMLImageElement>(null)
+  const jsImgElRef = React.useRef<HTMLImageElement>(null)
 
   // make this happen asap
   // if it's alrady loaded, don't bother fading it in.
   useSSRLayoutEffect(() => {
-    if (imgRef.current?.complete) setVisible(true)
+    if (jsImgElRef.current?.complete) setVisible(true)
   }, [])
 
   React.useEffect(() => {
-    if (!imgRef.current) return
-    if (imgRef.current.complete) return
+    if (!jsImgElRef.current) return
+    if (jsImgElRef.current.complete) return
 
     let current = true
-    imgRef.current.addEventListener('load', () => {
-      if (!imgRef.current || !current) return
+    jsImgElRef.current.addEventListener('load', () => {
+      if (!jsImgElRef.current || !current) return
       setTimeout(() => {
         setVisible(true)
       }, 0)
@@ -36,38 +37,28 @@ function BlurrableImage({
     }
   }, [])
 
-  const imgEl = React.cloneElement(img, {
-    // @ts-expect-error no idea 🤷‍♂️
-    ref: imgRef,
-    key: img.props.src,
-    className: clsx(img.props.className, 'w-full h-full object-cover'),
-  })
-
-  const blurEl = (
-    <img
-      key={blurDataUrl}
-      src={blurDataUrl}
-      className={imgEl.props.className}
-    />
-  )
-
-  const jsImgEl = React.cloneElement(imgEl, {
-    key: `${img.props.src}-js`,
-    className: clsx(imgEl.props.className, 'z-10 transition-opacity', {
+  const jsImgEl = React.cloneElement(img, {
+    ref: jsImgElRef,
+    className: clsx(img.props.className, 'transition-opacity', {
       'opacity-0': !visible,
     }),
   })
 
   return (
-    <div className={clsx(rest.className, 'w-full h-full')} {...rest}>
-      {jsImgEl}
-      <noscript className="z-10">{imgEl}</noscript>
+    <div {...rest}>
       {blurDataUrl ? (
         <>
-          {blurEl}
-          <div className={clsx(imgEl.props.className, 'backdrop-blur-xl')} />
+          <img
+            key={blurDataUrl}
+            src={blurDataUrl}
+            className={img.props.className}
+            alt={img.props.alt}
+          />
+          <div className={clsx(img.props.className, 'backdrop-blur-xl')} />
         </>
       ) : null}
+      {jsImgEl}
+      <noscript>{img}</noscript>
     </div>
   )
 }

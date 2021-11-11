@@ -31,6 +31,9 @@ import {Themed} from '~/utils/theme-provider'
 import {getSocialImageWithPreTitle} from '~/images'
 import {getSocialMetas} from '~/utils/seo'
 import {FourOhFour} from '~/components/errors'
+import {IconLink} from '~/components/icon-link'
+import {useRootData} from '~/utils/use-root-data'
+import {Spacer} from '~/components/spacer'
 
 export const handle: KCDHandle = {
   getSitemapEntries: async request => {
@@ -70,6 +73,7 @@ export const meta: MetaFunction = ({data, parentsData}) => {
   const playerUrl = `https://player.simplecast.com/${simpleCastId}`
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title,
       description,
       keywords: `chats with kent, kent c. dodds, ${
@@ -77,6 +81,7 @@ export const meta: MetaFunction = ({data, parentsData}) => {
       }`,
       url: getUrl(requestInfo),
       image: getSocialImageWithPreTitle({
+        origin: requestInfo.origin,
         title: episode.title,
         preTitle: 'Check out this Podcast',
         featuredImage: image,
@@ -384,8 +389,10 @@ function PrevNextButton({
 }
 
 export default function PodcastDetail() {
+  const {requestInfo} = useRootData()
   const {episode, featured, nextEpisode, prevEpisode} =
     useLoaderData<LoaderData>()
+  const permalink = `${requestInfo.origin}${getCWKEpisodePath(episode)}`
 
   return (
     <>
@@ -407,6 +414,10 @@ export default function PodcastDetail() {
       <Grid as="main" className="mb-24 lg:mb-64">
         <div className="col-span-full mb-16 lg:col-span-8 lg:col-start-3">
           <Themed
+            // changing the theme while the player is going will cause it to
+            // unload the player in the one theme and load it in the other
+            // which is annoying.
+            initialOnly={true}
             dark={
               <iframe
                 className="mb-4"
@@ -440,15 +451,40 @@ export default function PodcastDetail() {
         </div>
 
         <H3
-          className="col-span-full mb-6 lg:col-span-8 lg:col-start-3"
+          className="col-span-full lg:col-span-8 lg:col-start-3"
           dangerouslySetInnerHTML={{__html: episode.descriptionHTML}}
         />
 
+        <Spacer size="3xs" className="col-span-full" />
+
+        <div className="col-span-full lg:col-span-8 lg:col-start-3">
+          <IconLink
+            className="flex gap-2"
+            target="_blank"
+            rel="noreferrer noopener"
+            href={`https://twitter.com/intent/tweet?${new URLSearchParams({
+              url: permalink,
+              text: `I just listened to "${episode.title}" with ${listify(
+                episode.guests
+                  .map(g => (g.twitter ? `@${g.twitter}` : null))
+                  .filter(Boolean),
+              )} on the Call Kent Podcast 🎙 by @kentcdodds`,
+            })}`}
+          >
+            <TwitterIcon title="Tweet this" />
+            <span>Tweet this episode</span>
+          </IconLink>
+        </div>
+
+        <Spacer size="2xs" className="col-span-full" />
+
         <Paragraph
           as="div"
-          className="col-span-full mb-10 space-y-6 lg:col-span-8 lg:col-start-3"
+          className="col-span-full space-y-6 lg:col-span-8 lg:col-start-3"
           dangerouslySetInnerHTML={{__html: episode.summaryHTML}}
         />
+
+        <Spacer size="3xs" className="col-span-full" />
 
         <div className="col-span-full space-y-4 lg:col-span-8 lg:col-start-3">
           {episode.homeworkHTMLs.length > 0 ? (

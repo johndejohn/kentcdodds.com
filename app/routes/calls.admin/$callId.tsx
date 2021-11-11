@@ -2,11 +2,16 @@ import * as React from 'react'
 import {redirect, Form, json, useActionData, useLoaderData} from 'remix'
 import type {Await, KCDAction, KCDHandle, KCDLoader} from '~/types'
 import {format} from 'date-fns'
-import {useUser} from '~/utils/use-root-data'
+import {useRootData, useUser} from '~/utils/use-root-data'
 import {CallRecorder} from '~/components/calls/recorder'
 import {requireAdminUser} from '~/utils/session.server'
 import {prismaWrite, prismaRead} from '~/utils/prisma.server'
-import {getErrorMessage, getNonNull} from '~/utils/misc'
+import {
+  getAvatarForUser,
+  getErrorMessage,
+  getNonNull,
+  useDoubleCheck,
+} from '~/utils/misc'
 import {createEpisodeAudio} from '~/utils/ffmpeg.server'
 import {createEpisode} from '~/utils/transistor.server'
 import type {RecordingFormData} from '~/components/calls/submit-recording-form'
@@ -81,6 +86,8 @@ export const action: KCDAction<{callId: string}> = async ({
     const episodeAudio = await createEpisodeAudio(call.base64, response)
 
     await createEpisode({
+      request,
+      avatar: form.get('avatar'),
       audio: episodeAudio,
       title,
       summary: `${call.user.firstName} asked this on ${format(
@@ -109,7 +116,7 @@ type LoaderData = {
 async function getCallInfo({callId}: {callId: string}) {
   const call = await prismaRead.call.findFirst({
     where: {id: callId},
-    include: {user: {select: {firstName: true, team: true}}},
+    include: {user: {select: {firstName: true, team: true, email: true}}},
   })
   if (!call) {
     throw new Error(`No call by the ID of ${callId}`)
@@ -138,6 +145,7 @@ function CallListing({call}: {call: LoaderData['call']}) {
   const [audioURL, setAudioURL] = React.useState<string | null>(null)
   const [audioEl, setAudioEl] = React.useState<HTMLAudioElement | null>(null)
   const [playbackRate, setPlaybackRate] = React.useState(2)
+  const dc = useDoubleCheck()
   React.useEffect(() => {
     const audio = new Audio(call.base64)
     setAudioURL(audio.src)
@@ -179,19 +187,25 @@ function CallListing({call}: {call: LoaderData['call']}) {
       ) : null}
       <Form method="delete">
         <input type="hidden" name="callId" value={call.id} />
-        <Button type="submit" variant="danger">
-          Delete
+        <Button type="submit" variant="danger" {...dc.getButtonProps()}>
+          {dc.doubleCheck ? 'You sure?' : 'Delete'}
         </Button>
       </Form>
     </section>
   )
 }
 
-export default function RecordingDetailScreen() {
+function RecordingDetailScreen() {
   const [responseAudio, setResponseAudio] = React.useState<Blob | null>(null)
   const data = useLoaderData<LoaderData>()
   const actionData = useActionData<ActionData>()
   const user = useUser()
+  const {requestInfo} = useRootData()
+  const [callerAvatar, setCallerAvatar] = React.useState(
+    getAvatarForUser(data.call.user, {
+      origin: requestInfo.origin,
+    }).src,
+  )
 
   return (
     <div key={data.call.id}>
@@ -206,6 +220,18 @@ export default function RecordingDetailScreen() {
             fields: {...data.call, ...actionData?.fields},
             errors: {...actionData?.errors},
           }}
+          additionalFields={
+            <>
+              <Field
+                label="Avatar"
+                description="Episode avatar URL"
+                name="avatar"
+                value={callerAvatar}
+                onChange={e => setCallerAvatar(e.currentTarget.value)}
+              />
+              <img src={callerAvatar} alt="Caller avatar" />
+            </>
+          }
         />
       ) : (
         <CallRecorder
@@ -215,6 +241,13 @@ export default function RecordingDetailScreen() {
       )}
     </div>
   )
+}
+
+// IDEA: maybe suggest to the remix team that this would be a good default?
+// where params is a key for the route. Got a few spots like this...
+export default function RecordDetailScreenContainer() {
+  const data = useLoaderData<LoaderData>()
+  return <RecordingDetailScreen key={data.call.id} />
 }
 
 /*

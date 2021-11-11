@@ -15,174 +15,153 @@ bannerCloudinaryId: unsplash/photo-1609667083964-f3dbecb7e7a5
 bannerCredit: Photo by [Jan Huber](https://unsplash.com/photos/oTCRizM-PUI)
 ---
 
+<callout-danger>
+
+Please keep in mind that this is a
+["Super Simple Start"](/blog?q=super+simple+start) article. That means that
+target audience fo this article is people who have experience with Remix and are
+curious about how the bits and pieces work without all the nice things Remix
+provides for you out of the box. Because of that, this article might make it
+seem like Remix is harder to use than it really is. This is not a good article
+to read if you're just getting started with Remix or want an introduction to it.
+
+I'll write a good beginner's guide article soon.
+
+</callout-danger>
+
 Remix has me more excited about building better websites than anything else
 since I started using React back in 2015. I have so much to say about it, but
 for this blog post, we're going to remove as many distractions as possible and
 give remix the "super simple start" treatment. So, even though Remix has a fancy
-`npm init remix` thing you can run (which is much easier than what I'm going to
-show you), we're going to skip that and build a simple remix app from absolutely
-nothing to running so we can inspect each bit required to get it going.
+`npx create-remix@latest` thing you can run (which is much easier than what I'm
+going to show you), we're going to skip that and build a simple remix app from
+absolutely nothing to running so we can inspect each bit required to get it
+going.
 
 Before we get started, create a folder for our project. I'm going to be super
 original and put mine on the desktop with the folder name
 "super-simple-start-to-remix". Alright, now we're ready to go!
 
-## 1. Get a license
+## 1. Installing Remix
 
-Remix is paid software. That's right! Instead of sucking the maintainers of
-their time and energy, you're actually giving them more resources to make the
-framework even better by becoming a user! Cool right?!
+<callout-warning>
+  Remix used to be paid software but it's going open source soon. While in limbo
+  you'll need to install Remix through their proxy. Once Remix is officially
+  open source, you won't need to do this extra `.npmrc` step.
+</callout-warning>
 
-So to get a license, go to [remix.run/buy](https://remix.run/buy) and purchase
-the license that makes the most sense for you.
-
-With your very own license key (which you can find on
-[your remix dashboard](https://remix.run/dashboard)), you're ready to begin.
-
-Let's imagine your key is `1278430678990lol4dnice39b4try14123`.
-
-## 2. Installing Remix
-
-You install remix packages just like you install all other packages on `npm`,
-except because it's paid software, Remix hosts it's own package registry for
-remix packages. This means that you list `remix` packages in your `package.json`
-and you can use `npm install` or `yarn add` or whatever like usual, but you need
-to tell the package manager where to get the remix packages. You need to tell
-`npm` that when it's installing remix packages, it needs to use remix's registry
-instead of the official npm registry.
+To install `@remix-run/*`-prefixed packages, you list them in your
+`package.json` and you can use `npm install` or `yarn add` or whatever like
+usual, but you need to tell the package manager where to get the remix packages.
+You need to tell `npm` that when it's installing remix packages, it needs to use
+remix's registry instead of the official npm registry.
 
 Here's how we do that. Create a file in your project called `.npmrc`:
 
-```sh
-# ~/Desktop/super-simple-start-to-remix/.npmrc
+```sh filename=.npmrc
 @remix-run:registry=https://npm.remix.run
 ```
 
 So now when npm comes across any package within the `@remix-run` scope, it'll
-use the `npm.remix.run` registry. Go ahead and try installing one:
+use the `npm.remix.run` registry. With that set up, we can now install the other
+packages we need to get things started:
 
-```
-npm install @remix-run/node
-
-npm ERR! code E403
-npm ERR! 403 403 Forbidden - GET https://npm.remix.run/@remix-run%2fnode - Missing authorization
-npm ERR! 403 In most cases, you or one of your dependencies are requesting
-npm ERR! 403 a package version that is forbidden by your security policy.
-
-npm ERR! A complete log of this run can be found in:
-npm ERR!     /Users/kentcdodds/.npm/_logs/2021-05-03T22_34_06_763Z-debug.log
-```
-
-Oh yeah, we need to make sure the remix registry knows we're authorized to
-download remix packages. The way we do this is by providing an `authToken` by
-updating our `.npmrc` with this:
-
-```
-# ~/Desktop/super-simple-start-to-remix/.npmrc
-//npm.remix.run/:_authToken=1278430678990lol4dnice39b4try14123
-@remix-run:registry=https://npm.remix.run
-```
-
-BUT WAIT! We don't want to put our license right there in plain sight for anyone
-to grab, especially if we plan on pushing this to source control. So instead,
-we'll put our license key in an environment variable and reference that
-environment variable.
-
-So let's update the `.npmrc` to not reference our key directly, and interpolate
-an environment variable instead:
-
-```
-# ~/Desktop/super-simple-start-to-remix/.npmrc
-//npm.remix.run/:_authToken=${REMIX_TOKEN}
-@remix-run:registry=https://npm.remix.run
-```
-
-So now, try setting that variable and then installing. Here's how you do that on
-macOS:
-
-```
-REMIX_TOKEN=1278430678990lol4dnice39b4try14123
-
-npm install @remix-run/node
-```
-
-SUCCESS!
-
-Personally, I'm not a fan of setting that environment variable every time I open
-a terminal window and need to install my dependencies, so I suggest you set that
-environment variable on your system:
-
-- [macOS](https://www.talkofweb.com/how-to-set-environment-variable-in-macos-catalina/)
-- [Windows](https://www.alphr.com/environment-variables-windows-10/)
-
-With that set up, we can now install the other packages we need to get things
-started:
-
-```
-npm install react react-dom remix @remix-run/react
+```sh
+npm install react react-dom react-router-dom
 npm install --save-dev @remix-run/dev
 ```
 
-## 3. Configuring Remix
+## 2. Configuring Remix
 
 Cool, with those things installed, let's configure Remix. Create a
 `remix.config.js`:
 
-```js
+```js filename=remix.config.js
 module.exports = {}
 ```
 
 Yup, that's all you need. The defaults all work fine, but remix won't build
 without the config file, so we'll create that.
 
-## 4. Building the app with Remix
+## 3. Building the app with Remix
 
 Let's add a `build` script to our `package.json`:
 
-```json [2-4]
+```json lines=2-4 filename=package.json
 {
   "scripts": {
     "build": "remix build"
   },
   "dependencies": {
-    "@remix-run/node": "^0.17.0",
-    "@remix-run/react": "^0.17.0",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "remix": "^0.17.0"
+    "remix": "^0.20.1"
   },
   "devDependencies": {
-    "@remix-run/dev": "^0.17.0"
+    "@remix-run/dev": "^0.20.1"
   }
 }
 ```
 
-Before we run that command though, we're going to need a few files:
+Sweet, let's run the build!
 
-```
-mkdir app
-touch app/entry.client.jsx
-touch app/entry.server.jsx
-touch app/root.jsx
-```
-
-Note: Remix supports TypeScript out of the box, but we're keeping this simple.
-Also, because we plan to use JSX in these files, they need the `.jsx` extension.
-Remix uses esbuild which requires a `.jsx` or `.tsx` extension if you want to
-use JSX.
-
-Now, let's run the build:
-
-```
+```sh
 npm run build
 
 Building Remix app in production mode...
-Built in 28ms
+Missing "entry.client" file in ~/Desktop/super-simple-start-to-remix/app
 ```
 
-Success! Let's check out our file structure now. Here it is pre-build:
+Ah, yeah, let's add that file:
 
+```sh
+mkdir app
+touch app/entry.client.jsx
 ```
+
+And run the build again:
+
+```sh
+npm run build
+
+Building Remix app in production mode...
+Missing "entry.server" file in ~/Desktop/super-simple-start-to-remix/app
+```
+
+Ok, let's add that one:
+
+```sh
+touch app/entry.server.jsx
+```
+
+And again:
+
+```sh
+npm run build
+
+Building Remix app in production mode...
+Missing "root" file in ~/Desktop/super-simple-start-to-remix/app
+```
+
+Maybe this is the last one?
+
+```sh
+touch app/root.jsx
+```
+
+Ok, let's run the build one more time:
+
+```sh
+npm run build
+
+Building Remix app in production mode...
+Built in 234ms
+```
+
+Success! Let's check out our file structure now. Here it is pre-build (ignoring
+`node_modules`):
+
+```sh
 .
 ├── app
 │   ├── entry.client.jsx
@@ -195,7 +174,7 @@ Success! Let's check out our file structure now. Here it is pre-build:
 
 And once we run `npm run build` remix creates a few files for us:
 
-```sh [6-8,11-17]
+```sh lines=6-8,11-17
 .
 ├── app
 │   ├── entry.client.jsx
@@ -210,15 +189,22 @@ And once we run `npm run build` remix creates a few files for us:
 │   └── build
 │       ├── _shared
 │       │   └── chunk-DH6LPQ4Z.js
-│       ├── entry.client-LKK3OBJD.js
-│       ├── manifest-C0FC4AB2.js
-│       └── root-CJI57JUZ.js
+│       ├── entry.client-CY7AAJ4Q.js
+│       ├── manifest-12E650A9.js
+│       └── root-JHXSOSD4.js
 └── remix.config.js
 ```
 
+<callout-info>
+  Note: Remix supports TypeScript out of the box, but we're keeping this simple.
+  Also, because we plan to use JSX in these files, they need the `.jsx`
+  extension. Remix uses esbuild which requires a `.jsx` or `.tsx` extension if
+  you want to use JSX.
+</callout-info>
+
 Sweet! We built it... Now what?
 
-## 5. Coding our Remix App
+## 4. Coding our Remix App
 
 Remix is a server-side rendering React framework. So far we've just got it
 compiling things for us. Let's actually get a server running and show something
@@ -227,7 +213,7 @@ on the screen.
 Let's start by filling in the `root.jsx` with something. This is the root
 element Remix will render:
 
-```tsx
+```tsx filename=app/root.jsx
 import * as React from 'react'
 
 function App() {
@@ -253,7 +239,7 @@ than you think it is I promise you.
 
 Ok, next, let's fill in the `entry.client.jsx`:
 
-```tsx
+```tsx filename=app/entry.client.jsx
 import ReactDOM from 'react-dom'
 import {RemixBrowser} from 'remix'
 
@@ -264,7 +250,7 @@ What's that? We're... HYDRATING the `document`?! How neat is that?!
 
 And finally, let's fill in the `entry.server.jsx`:
 
-```tsx
+```tsx filename=app/entry.server.jsx
 import ReactDOMServer from 'react-dom/server'
 import {RemixServer} from 'remix'
 
@@ -302,43 +288,175 @@ we don't need to learn extra special APIs Remix made for us and they don't need
 to make extra-special options to customize any of this, because the control is
 in our hands. Very cool.
 
-One other thing I'll note is that the `remix` package is actually a lightweight
-(and public) package that simply re-exports things from `@remix-run/node`
-(server-side stuff) and `@remix-run/react` (client-side stuff).
+Alright, let's try running the build again!
 
-## 6. Running our Remix server
+```sh
+npm run build
 
-Remix supports running just about anywhere. It has built-in support and adapters
-for a growing list of environments including anywhere that runs express (and/or
-docker containers), architect, and vercel (soon netlify, firebase, and
-cloudflare workers). Depending on where you plan to deploy, you may want to use
-the tools provided by that platform. For us, we'll go for the express approach.
-We can create our own express server if we want, but since we don't need any
-extra bells and whistles for our express server, we can use what's offered by
-default from `@remix-run/serve`. So let's get that installed:
+Building Remix app in production mode...
+The path "remix" is imported in app/entry.server.jsx but remix is not listed in your package.json dependencies. Did you forget to install it?
 
+ > app/entry.client.jsx:2:27: error: Could not resolve "remix" (mark it as external to exclude it from the bundle)
+    2 │ import {RemixBrowser} from 'remix'
+      ╵                            ~~~~~~~
+
+
+Build failed with 1 error:
+app/entry.client.jsx:2:27: error: Could not resolve "remix" (mark it as external to exclude it from the bundle)
+Built in 258ms
 ```
-npm install @remix-run/serve
+
+Oh, right, we're using the `remix` package for the `RemixBrowser` and
+`RemixServer` components. Let's install that:
+
+```sh
+npm install remix
 ```
 
-Note that this is a regular dependency because we'll use this to server our app
-in production. Now let's add `dev` script to our `package.json`:
+Now let's try the build again:
 
-```json [4]
+```sh
+npm run build
+
+Building Remix app in production mode...
+
+ > node_modules/remix/browser/index.js:11:14: error: Could not resolve "./client"
+    11 │ export * from './client';
+       ╵               ~~~~~~~~~~
+
+  > node_modules/remix/browser/index.js:12:14: error: Could not resolve "./server"
+    12 │ export * from './server';
+       ╵               ~~~~~~~~~~
+
+  > node_modules/remix/browser/index.js:13:14: error: Could not resolve "./platform"
+    13 │ export * from './platform';
+       ╵               ~~~~~~~~~~~~
+
+
+Build failed with 3 errors:
+node_modules/remix/browser/index.js:11:14: error: Could not resolve "./client"
+node_modules/remix/browser/index.js:12:14: error: Could not resolve "./server"
+node_modules/remix/browser/index.js:13:14: error: Could not resolve "./platform"
+Built in 274ms
+```
+
+Ah! What's going on here? Well, the `remix` package itself is actually rather
+simple. All it does is act as a sort of "proxy" for the other packages we're
+going to be using. There's a `@remix-run/react` for the react-specific stuff.
+And then there are `@remix-run/{adapter}` packages that we can use for
+server-side platform-specific stuff. Currently, here are all the adapters we can
+use currently:
+
+Deploy anywhere you can ship node and/or a docker container:
+
+- `@remix-run/node`
+- `@remix-run/express`
+- `@remix-run/serve`
+
+Deploy to specific platforms (serverless etc.):
+
+- `@remix-run/architect`
+- `@remix-run/vercel`
+- `@remix-run/netlify`
+- `@remix-run/cloudflare-workers`
+
+More adapters are coming:
+
+- [deno](https://deno.land/)
+- [Service workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers)
+- Maybe even
+  [ducktape.org](https://twitter.com/mjackson/status/1456319239170580487)!!
+
+The primary thing these adapters do is convert the Request/Response from the
+platform-specific objects to the Web-standard Request/Response (or a polyfilled
+version of that).
+
+For our simple app, we're going to use `@remix-run/serve` which is built on top
+of `@remix-run/express` which actually is built on top of `@remix-run/node`. So
+this can deploy anywhere you can deploy a `node` server. The cool thing is that
+if you want to deploy anywhere else you totally can and you just need to swap
+out the adapter you're using in the `package.json` and so long as your own code
+and other dependencies are supported by the platform, you should be good to go.
+
+So let's install the packages we're going to need.
+
+```sh
+npm install @remix-run/react @remix-run/serve
+```
+
+Next we need to set up the `remix` package to act as a proxy for us, so let's
+run:
+
+```sh
+npx remix setup node
+
+Successfully setup Remix for node.
+```
+
+Now let's run the build again:
+
+```sh
+npm run build
+
+Building Remix app in production mode...
+Built in 255ms
+```
+
+Sweet! It worked 🎉
+
+Now, I don't know about you, but as nice as it is that `remix` is going to be
+our "proxy" package, I don't want to have to run that `setup` script any time I
+install dependencies. So let's add a `postinstall` script to do that
+automatically for us:
+
+```json lines=3,7-8,12 filename=package.json
 {
   "scripts": {
-    "build": "remix build",
-    "dev": "remix run"
+    "postinstall": "remix setup node",
+    "build": "remix build"
   },
   "dependencies": {
-    "@remix-run/node": "^0.17.0",
-    "@remix-run/react": "^0.17.0",
+    "@remix-run/react": "^0.20.1",
+    "@remix-run/serve": "^0.20.1",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "remix": "^0.17.0"
+    "react-router-dom": "^6.0.0",
+    "remix": "^0.20.1"
   },
   "devDependencies": {
-    "@remix-run/dev": "^0.17.0"
+    "@remix-run/dev": "^0.20.1"
+  }
+}
+```
+
+I also highlighted the lines above that are the other dependencies we've added
+to our project.
+
+Sweet. So now we actually have something _real_ that'll run and build. Onto the
+next step!
+
+## 5. Running our Remix server
+
+Alright, so we want to "develop" our app right? So let's add `dev` script to our
+`package.json`:
+
+```json lines=5 filename=package.json
+{
+  "scripts": {
+    "postinstall": "remix setup node",
+    "build": "remix build",
+    "dev": "remix dev"
+  },
+  "dependencies": {
+    "@remix-run/react": "^0.20.1",
+    "@remix-run/serve": "^0.20.1",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-router-dom": "^6.0.0",
+    "remix": "^0.20.1"
+  },
+  "devDependencies": {
+    "@remix-run/dev": "^0.20.1"
   }
 }
 ```
@@ -348,27 +466,27 @@ And now if we run `npm run dev` we'll get this output:
 ```
 Watching Remix app in development mode...
 Remix App Server started at http://localhost:3000
-💿 Built in 102ms
+💿 Built in 314ms
 ```
 
-That output shows that `remix run` does two things:
+That output shows that `remix dev` does two things:
 
 1. `Remix App Server started at http://localhost:3000`: This comes from
    `remix-serve` which is running a simple express server based on what's in the
    `build` directory.
-2. `💿 Built in 102ms`: This comes from `remix build` which is running in watch
+2. `💿 Built in 314ms`: This comes from `remix build` which is running in watch
    mode and development mode.
 
 Whenever we make a change, the output in `build` is updated and the express
 server picks up those changes.
 
-One other thing `remix run` does is start a websocket with the browser to
+One other thing `remix dev` does is start a websocket with the browser to
 support live reload. Currently there's no support for "Hot Module Replacement"
 (HMR) and I'm actually totally cool with that. I never trusted HMR in apps
 anyway (though it's awesome in tools like storybook) and always did a full-page
 refresh even with HMR setup. Additionally, since a lot of the code you write
 with remix is server-side, you typically want a full-page refresh anyway to get
-all the server-side code to run again. All that said, HMR may come in the
+all the server-side code to run again. All that said, HMR will come in the
 future.
 
 Ok, great, let's get this opened up! Navigate to
@@ -376,9 +494,9 @@ Ok, great, let's get this opened up! Navigate to
 
 ![Browser window with the text "This is a remix app. Hooray!"" And a button with the number 0 in it](https://res.cloudinary.com/kentcdodds-com/image/upload/v1620151304/kentcdodds.com/blog/super-simple-start-to-remix/app_ol57hw.png)
 
-## 7. Hydrating our Remix app
+## 6. Hydrating our Remix app
 
-But oh no! If we click that button nothings happens. Weird... I thought this was
+But oh no! If we click that button nothing happens. Weird... I thought this was
 a react app. Let's take a look at the network tab:
 
 ![Network tab showing two GET requests, one for the document and the other for a favicon](https://res.cloudinary.com/kentcdodds-com/image/upload/v1620395539/kentcdodds.com/blog/super-simple-start-to-remix/network-tab_iyg7iy.png)
@@ -387,11 +505,10 @@ Notice anything missing? Oh yeah! No JavaScript! Yup, that's right, with Remix
 you get to choose whether you load any JavaScript at all. And it's not a
 configuration thing. Remember how we are in charge of the entire document
 starting from `<html>`? Cool right? So let's update our `app/root.jsx` to
-include the the script tag. Remix conveniently gives us a component we can
-render to render that script tag:
+include the script tag. Remix conveniently gives us a component we can render to
+render that script tag:
 
-```tsx [3,15]
-// app/root.jsx
+```tsx lines=2,14 filename=app/root.jsx
 import * as React from 'react'
 import {Scripts} from 'remix'
 
@@ -420,7 +537,7 @@ favicon:
 <img
   style={{width: 60, display: 'block', marginLeft: 'auto', marginRight: 'auto'}}
   alt="CD"
-  src="https://res.cloudinary.com/kentcdodds-com/image/upload/w_120,f_auto,q_auto,dpr_2.0/v1620153603/kentcdodds.com/blog/super-simple-start-to-remix/favicon_vsvcsr.ico"
+  src="https://res.cloudinary.com/kentcdodds-com/image/upload/w_120,q_auto,dpr_2.0/v1620153603/kentcdodds.com/blog/super-simple-start-to-remix/favicon_vsvcsr.ico"
 />
 
 Just put that `.ico` file in the `public` directory. `@remix-run/serve` will
@@ -442,8 +559,8 @@ And if we "view source" on the document here's what we get:
   <body>
     <p>This is a remix app. Hooray!</p>
     <button>0</button>
-    <link rel="modulepreload" href="/build/_shared/chunk-UKIVUHZH.js" />
-    <link rel="modulepreload" href="/build/root-ZWUBXRA3.js" />
+    <link rel="modulepreload" href="/build/_shared/chunk-DLVV55I2.js" />
+    <link rel="modulepreload" href="/build/root-2UAEY3HA.js" />
     <script>
       window.__remixContext = {
         matches: [
@@ -452,28 +569,34 @@ And if we "view source" on the document here's what we get:
             pathname: '/',
             route: {
               id: 'root',
-              path: '/',
-              module: '/build/root-ZWUBXRA3.js',
+              path: '',
+              module: '/build/root-2UAEY3HA.js',
               hasAction: false,
               hasLoader: false,
+              hasCatchBoundary: false,
+              hasErrorBoundary: false,
             },
           },
         ],
         componentDidCatchEmulator: {
           trackBoundaries: true,
+          trackCatchBoundaries: true,
+          catchBoundaryRouteId: null,
           renderBoundaryRouteId: null,
           loaderBoundaryRouteId: null,
           error: undefined,
+          catch: undefined,
         },
         routeData: {root: null},
+        actionData: undefined,
       }
     </script>
-    <script src="/build/manifest-6B36E634.js"></script>
+    <script src="/build/manifest-14A81006.js"></script>
     <script type="module">
-      import * as route0 from '/build/root-ZWUBXRA3.js'
+      import * as route0 from '/build/root-2UAEY3HA.js'
       window.__remixRouteModules = {root: route0}
     </script>
-    <script src="/build/entry.client-4YFGIIEC.js" type="module"></script>
+    <script src="/build/entry.client-7F2IUO4V.js" type="module"></script>
   </body>
 </html>
 ```
@@ -483,7 +606,7 @@ for us, so we don't have a waterfall (you'll notice the network tab has all
 resources starting to load at the same time). This gets even more interesting
 when we start routing, but we'll keep things simple.
 
-## 8. Running Production Mode locally
+## 7. Running Production Mode locally
 
 Alright, let's build and run this thing locally. So first we need to run the
 production build to get everything minified and have React optimize itself for
@@ -493,27 +616,29 @@ production:
 npm run build
 
 Building Remix app in production mode...
-Built in 52ms
+Built in 281ms
 ```
 
 Now, let's add a `start` script to run `remix-serve` for our `build` directory:
 
-```json [5]
+```json lines=6 filename=package.json
 {
   "scripts": {
+    "postinstall": "remix setup node",
     "build": "remix build",
-    "dev": "remix run",
-    "start": "remix-serve build"
+    "dev": "remix dev",
+    "start": "remix-serve ./build"
   },
   "dependencies": {
-    "@remix-run/node": "^0.17.0",
-    "@remix-run/react": "^0.17.0",
+    "@remix-run/react": "^0.20.1",
+    "@remix-run/serve": "^0.20.1",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "remix": "^0.17.0"
+    "react-router-dom": "^6.0.0",
+    "remix": "^0.20.1"
   },
   "devDependencies": {
-    "@remix-run/dev": "^0.17.0"
+    "@remix-run/dev": "^0.20.1"
   }
 }
 ```
@@ -522,24 +647,25 @@ One other thing we'll want to do is set the `NODE_ENV` to `production` so any
 dependencies we use that operate slightly differently in production mode will
 work as expected, so let's add `cross-env` and set the `NODE_ENV` with that:
 
-```json [5,11]
+```json lines=6,11 filename=package.json
 {
   "scripts": {
+    "postinstall": "remix setup node",
     "build": "remix build",
-    "dev": "remix run",
-    "start": "cross-env NODE_ENV=production remix-serve build"
+    "dev": "remix dev",
+    "start": "cross-env NODE_ENV=production remix-serve ./build"
   },
   "dependencies": {
-    "@remix-run/node": "^0.17.0",
-    "@remix-run/react": "^0.17.0",
-    "@remix-run/serve": "^0.17.0",
+    "@remix-run/react": "^0.20.1",
+    "@remix-run/serve": "^0.20.1",
     "cross-env": "^7.0.3",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "remix": "^0.17.0"
+    "react-router-dom": "^6.0.0",
+    "remix": "^0.20.1"
   },
   "devDependencies": {
-    "@remix-run/dev": "^0.17.0"
+    "@remix-run/dev": "^0.20.1"
   }
 }
 ```
@@ -549,7 +675,7 @@ Cool, so let's get it started:
 ```
 npm start
 
-> @ start /Users/kentcdodds/Desktop/super-simple-start-to-remix
+> @ start ~/Desktop/super-simple-start-to-remix
 > cross-env NODE_ENV=production remix-serve build
 
 Remix App Server started at http://localhost:3000
@@ -564,16 +690,16 @@ Hooray!
 ## Conclusion
 
 You have a lot of options for actually deploying your Remix app to production
-and when you set up Remix the easy way (via `npm init remix`) it'll let you
-choose which supported service you'd like to use and it'll spit out all the
+and when you set up Remix the easy way (via `npx create-remix@latest`) it'll let
+you choose which supported service you'd like to use and it'll spit out all the
 config and instructions to get started that you need, so I'm not going to cover
 that here.
 
-There is _so_ much more to remix, but this is a "super simple start" so I wanted
+There is _so_ much more to Remix, but this is a "super simple start" so I wanted
 to do as little as possible to show you where all the moving pieces are to get
-something up and running with Remix. Like I said, `npm init remix` makes all
-this a snap, but hopefully this walkthrough helped you get an idea of what parts
-of remix does what.
+something up and running with Remix. Like I said, `npx create-remix@latest`
+makes all this a snap, but hopefully this walkthrough helped you get an idea of
+what parts of remix does what.
 
 You can find the code for this walkthrough here:
 [kentcdodds/super-simple-start-to-remix](https://github.com/kentcdodds/super-simple-start-to-remix)

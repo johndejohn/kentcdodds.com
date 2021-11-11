@@ -43,7 +43,7 @@ function ConvertKitForm({
   return (
     <convertKit.Form
       ref={formRef}
-      action="/_action/convert-kit"
+      action="/action/convert-kit"
       className="mt-8 space-y-4"
       method="post"
       noValidate
@@ -59,7 +59,7 @@ function ConvertKitForm({
             ? convertKitData.errors.firstName
             : null
         }
-        autoComplete="firstName"
+        autoComplete="given-name"
         defaultValue={user?.firstName}
         required
         disabled={convertKit.state !== 'idle' || success}

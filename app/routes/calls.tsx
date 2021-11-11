@@ -2,7 +2,7 @@ import * as React from 'react'
 import type {LoaderFunction, HeadersFunction, MetaFunction} from 'remix'
 import {json, Link, useLoaderData, useMatches} from 'remix'
 import {Outlet} from 'react-router-dom'
-import {AnimatePresence, motion} from 'framer-motion'
+import {AnimatePresence, motion, useReducedMotion} from 'framer-motion'
 import clsx from 'clsx'
 import type {LoaderData as RootLoaderData} from '../root'
 import type {Await, CallKentEpisode, KCDHandle} from '~/types'
@@ -72,11 +72,13 @@ export const meta: MetaFunction = ({parentsData}) => {
   const {requestInfo} = parentsData.root as RootLoaderData
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title: 'Call Kent Podcast',
       description: `Leave Kent an audio message here, then your message and Kent's response are published in the podcast.`,
       keywords: 'podcast, call kent, call kent c. dodds, the call kent podcast',
       url: getUrl(requestInfo),
       image: getGenericSocialImage({
+        origin: requestInfo.origin,
         words: 'Listen to the Call Kent Podcast and make your own call.',
         featuredImage: images.microphone({
           // if we don't do this resize, the narrow microphone appears on the
@@ -97,12 +99,13 @@ export const meta: MetaFunction = ({parentsData}) => {
 }
 
 export default function CallHomeScreen() {
-  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
+  const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('desc')
+  const shouldReduceMotion = useReducedMotion()
 
   const data = useLoaderData<LoaderData>()
 
   const sortedEpisodes =
-    sortOrder === 'desc' ? data.episodes : [...data.episodes].reverse()
+    sortOrder === 'desc' ? [...data.episodes].reverse() : data.episodes
 
   const matches = useMatches()
   const callPlayerMatch = matches.find(
@@ -248,14 +251,6 @@ export default function CallHomeScreen() {
         <div className="col-span-full">
           {sortedEpisodes.map(episode => {
             const path = getEpisodePath(episode)
-            const keywords = Array.from(
-              new Set(
-                episode.keywords
-                  .split(/[,;\s]/g) // split into words
-                  .map(x => x.trim()) // trim white spaces
-                  .filter(Boolean), // remove empties
-              ), // omit duplicates
-            ).slice(0, 3) // keep first 3 only
 
             return (
               <div
@@ -322,22 +317,11 @@ export default function CallHomeScreen() {
                         initial="collapsed"
                         animate="expanded"
                         exit="collapsed"
-                        transition={{duration: 0.15}}
+                        transition={
+                          shouldReduceMotion ? {duration: 0} : {duration: 0.15}
+                        }
                         className="relative col-span-full"
                       >
-                        <H6 as="div">Keywords</H6>
-                        <Paragraph className="flex mb-8">
-                          {keywords.join(', ')}
-                        </Paragraph>
-
-                        <H6 as="div">Description</H6>
-                        <Paragraph
-                          as="div"
-                          className="mb-8"
-                          dangerouslySetInnerHTML={{
-                            __html: episode.descriptionHTML,
-                          }}
-                        />
                         <Outlet />
                       </motion.div>
                     ) : null}

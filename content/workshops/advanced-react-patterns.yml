@@ -9,6 +9,11 @@ meta:
     - react patterns
 categories:
   - react
+events:
+  - title: Advanced React Patterns in the Alpine Mountains (AgentConf)
+    url: https://www.alpine-conferences.com/agent-conf-2022/workshops
+    quantity: 20
+    date: January 26th, 2022
 convertKitTag: '896446'
 problemStatements:
   part1: Building reusable hooks and components can be tricky
@@ -41,7 +46,8 @@ keyTakeaways:
       number of those requests. And with control props, you'll be able to ditch
       the rest of them and rest easy.
 topics:
-  - Use Context Controllers to improve context value maintenance
+  - Use the latest ref pattern to make your custom hooks easier to use
+  - Use composition to simplify layout components and avoid prop drilling
   - Use the Compound Components Pattern to write React components that
     implicitly share state while giving rendering flexibility to the user
   - Handle common use cases for your hooks and components with the prop getter

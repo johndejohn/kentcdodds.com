@@ -1,11 +1,12 @@
 import {EntryContext, json} from 'remix'
 import {getSitemapXml} from './utils/sitemap.server'
 import {getRssFeedXml} from './utils/blog-rss-feed.server'
-import {getAllUserData} from './utils/prisma.server'
-import {commitShaKey as refreshCacheCommitShaKey} from './routes/_action/refresh-cache'
+import {getAllUserData, prismaRead} from './utils/prisma.server'
+import {commitShaKey as refreshCacheCommitShaKey} from './routes/action/refresh-cache'
 import {redisCache} from './utils/redis.server'
 import {requireUser} from './utils/session.server'
 import {getUserInfo} from './utils/user-info.server'
+import {getBlogReadRankings, getPostJson} from './utils/blog.server'
 
 type Handler = (
   request: Request,
@@ -22,6 +23,16 @@ const pathedRoutes: Record<string, Handler> = {
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': String(Buffer.byteLength(data)),
+      },
+    })
+  },
+  '/blog.json': async request => {
+    const data = await getPostJson(request)
+    const string = JSON.stringify(data)
+    return new Response(string, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': String(Buffer.byteLength(string)),
       },
     })
   },
@@ -47,8 +58,26 @@ const pathedRoutes: Record<string, Handler> = {
     const user = await requireUser(request)
 
     const postgres = await getAllUserData(user.id)
-    const cache = await getUserInfo(user)
+    const cache = await getUserInfo(user, {request})
     return json({postgres, cache})
+  },
+  '/healthcheck': async request => {
+    const host =
+      request.headers.get('X-Forwarded-Host') ?? request.headers.get('host')
+
+    try {
+      await Promise.all([
+        prismaRead.user.count(),
+        getBlogReadRankings({request}),
+        fetch(`http://${host}`, {method: 'HEAD'}).then(r => {
+          if (!r.ok) return Promise.reject(r)
+        }),
+      ])
+      return new Response('OK')
+    } catch (error: unknown) {
+      console.log('healthcheck ❌', {error})
+      return new Response('ERROR', {status: 500})
+    }
   },
 }
 

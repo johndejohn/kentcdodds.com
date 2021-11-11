@@ -40,10 +40,12 @@ export const meta: MetaFunction = ({parentsData}) => {
   const {requestInfo} = parentsData.root as RootLoaderData
   return {
     ...getSocialMetas({
+      origin: requestInfo.origin,
       title: 'Courses by Kent C. Dodds',
       description: 'Get really good at making software with Kent C. Dodds',
       url: getUrl(requestInfo),
       image: getGenericSocialImage({
+        origin: requestInfo.origin,
         url: getDisplayUrl(requestInfo),
         featuredImage: images.onewheel.id,
         words: `Level up your skills with self-paced courses from Kent C. Dodds`,
@@ -72,7 +74,7 @@ function SmallCourseCard({
       </div>
       <Paragraph className="flex-auto mb-16 max-w-sm">{description}</Paragraph>
 
-      <ArrowLink to={courseUrl} className="flex-none">
+      <ArrowLink href={courseUrl} className="flex-none">
         Visit course
       </ArrowLink>
     </div>
@@ -134,7 +136,7 @@ function CoursesHome() {
         <div className="col-span-full lg:col-span-6">
           <CourseCard
             title="Epic React"
-            description="The most comprehensive guide for pro's."
+            description="The most comprehensive guide for pros."
             imageBuilder={images.courseEpicReact}
             courseUrl="https://epicreact.dev"
           />

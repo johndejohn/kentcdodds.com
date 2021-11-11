@@ -9,9 +9,10 @@ import {
   useLoaderData,
   useMatches,
   useTransition,
+  useCatch,
 } from 'remix'
 import type {LinksFunction, MetaFunction, HeadersFunction} from 'remix'
-import {Outlet} from 'react-router-dom'
+import {Outlet, useLocation} from 'react-router-dom'
 import {AnimatePresence, motion} from 'framer-motion'
 import {useSpinDelay} from 'spin-delay'
 import type {Await, KCDHandle, User} from '~/types'
@@ -29,24 +30,31 @@ import {
 import {getThemeSession} from './utils/theme.server'
 import {getSession} from './utils/session.server'
 import {getLoginInfoSession} from './utils/login.server'
-import {getDisplayUrl, getDomainUrl, getUrl, typedBoolean} from './utils/misc'
+import {
+  getDisplayUrl,
+  getDomainUrl,
+  getUrl,
+  removeTrailingSlash,
+} from './utils/misc'
 import {getEnv} from './utils/env.server'
 import {getUserInfo} from './utils/user-info.server'
 import {getClientSession} from './utils/client.server'
 import type {Timings} from './utils/metrics.server'
 import {time, getServerTimeHeader} from './utils/metrics.server'
-import {useScrollRestoration} from './utils/scroll'
+import {RestoreScrollPosition, useScrollRestoration} from './utils/scroll'
 import {Navbar} from './components/navbar'
 import {Spacer} from './components/spacer'
 import {Footer} from './components/footer'
 import {TeamCircle} from './components/team-circle'
 import {NotificationMessage} from './components/notification-message'
 import {pathedRoutes} from './other-routes.server'
-import {ServerError} from './components/errors'
+import {ErrorPage} from './components/errors'
 import {TeamProvider, useTeam} from './utils/team-provider'
 import clsx from 'clsx'
 import {getSocialMetas} from './utils/seo'
 import {getGenericSocialImage, illustrationImages, images} from './images'
+import {Grimmacing, MissingSomething} from './components/kifs'
+import {ArrowLink} from './components/arrow-button'
 
 export const handle: KCDHandle & {id: string} = {
   id: 'root',
@@ -59,13 +67,14 @@ export const meta: MetaFunction = ({data}) => {
     'Come check out how Kent C. Dodds can help you level up your career as a software engineer.'
   return {
     viewport: 'width=device-width,initial-scale=1,viewport-fit=cover',
-    charSet: 'utf-8',
     'theme-color': '#A9ADC1',
     ...getSocialMetas({
+      origin: requestInfo?.origin ?? '',
       keywords:
         'Learn React, React Workshops, Testing JavaScript Training, React Training, Learn JavaScript, Learn TypeScript',
       url: getUrl(requestInfo),
       image: getGenericSocialImage({
+        origin: requestInfo?.origin ?? '',
         url: getDisplayUrl(requestInfo),
         words:
           'Helping people make the world a better place through quality software.',
@@ -94,19 +103,23 @@ export const links: LinksFunction = () => {
       crossOrigin: 'anonymous',
     },
     {
-      rel: 'preload',
-      as: 'font',
-      href: '/fonts/Matter-Medium.woff',
-      type: 'font/woff',
-      crossOrigin: 'anonymous',
+      rel: 'apple-touch-icon',
+      sizes: '180x180',
+      href: '/favicons/apple-touch-icon.png',
     },
     {
-      rel: 'preload',
-      as: 'font',
-      href: '/fonts/Matter-Regular.woff',
-      type: 'font/woff',
-      crossOrigin: 'anonymous',
+      rel: 'icon',
+      type: 'image/png',
+      sizes: '32x32',
+      href: '/favicons/favicon-32x32.png',
     },
+    {
+      rel: 'icon',
+      type: 'image/png',
+      sizes: '16x16',
+      href: '/favicons/favicon-16x16.png',
+    },
+    {rel: 'manifest', href: '/site.webmanifest'},
     {rel: 'icon', href: '/favicon.ico'},
     {rel: 'stylesheet', href: vendorStyles},
     {rel: 'stylesheet', href: tailwindStyles},
@@ -289,10 +302,6 @@ function App() {
   const matches = useMatches()
   const data = useLoaderData<LoaderData>()
 
-  const metas = matches
-    .flatMap(m => (m.handle as KCDHandle | undefined)?.metas)
-    .filter(typedBoolean)
-
   const shouldManageScroll = matches.every(
     m => (m.handle as KCDHandle | undefined)?.scroll !== false,
   )
@@ -307,46 +316,26 @@ function App() {
       className={clsx(theme, `set-color-team-current-${team.toLowerCase()}`)}
     >
       <head>
-        {ENV.FLY ? (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-// this is a temporary solution until I can figure out a safe way to do this on the server 😅
-if (window.location.protocol === 'http:') {
-  window.location.href = window.location.href.replace('http:', 'https:');
-}
-        `.trim(),
-            }}
-          />
-        ) : null}
+        <meta charSet="utf-8" />
         <Meta />
+
         <link
-          rel="apple-touch-icon"
-          sizes="180x180"
-          href="/favicons/apple-touch-icon.png"
+          rel="canonical"
+          href={removeTrailingSlash(
+            `${data.requestInfo.origin}${data.requestInfo.path}`,
+          )}
         />
-        <link
-          rel="icon"
-          type="image/png"
-          sizes="32x32"
-          href="/favicons/favicon-32x32.png"
-        />
-        <link
-          rel="icon"
-          type="image/png"
-          sizes="16x16"
-          href="/favicons/favicon-16x16.png"
-        />
-        <link rel="manifest" href="/site.webmanifest" />
-        {metas.map((m, i) => (
-          <meta key={i} {...m} />
-        ))}
+
         <Links />
         <noscript>
           <link rel="stylesheet" href={noScriptStyles} />
         </noscript>
         <NonFlashOfWrongThemeEls
           ssrTheme={Boolean(data.requestInfo.session.theme)}
+        />
+        <script
+          crossOrigin="anonymous"
+          src="https://polyfill.io/v3/polyfill.min.js?features=Intl%2CIntl.ListFormat"
         />
       </head>
       <body className="dark:bg-gray-900 bg-white transition duration-500">
@@ -356,6 +345,7 @@ if (window.location.protocol === 'http:') {
         <Outlet />
         <Spacer size="base" />
         <Footer image={images[data.randomFooterImageKey]} />
+        <RestoreScrollPosition />
         <Scripts />
         <script
           dangerouslySetInnerHTML={{
@@ -384,6 +374,7 @@ export default function AppWithProviders() {
 // the footer and stuff, which is much better.
 export function ErrorBoundary({error}: {error: Error}) {
   console.error(error)
+  const location = useLocation()
   return (
     <html lang="en" className="dark">
       <head>
@@ -391,11 +382,48 @@ export function ErrorBoundary({error}: {error: Error}) {
         <Links />
       </head>
       <body className="dark:bg-gray-900 bg-white transition duration-500">
-        <ServerError />
+        <ErrorPage
+          heroProps={{
+            title: '500 - Oh no, something did not go well.',
+            subtitle: `"${location.pathname}" is currently not working. So sorry.`,
+            image: <Grimmacing className="rounded-lg" aspectRatio="3:4" />,
+            action: <ArrowLink href="/">Go home</ArrowLink>,
+          }}
+        />
         <Scripts />
       </body>
     </html>
   )
+}
+
+export function CatchBoundary() {
+  const caught = useCatch()
+  const location = useLocation()
+  console.error('CatchBoundary', caught)
+  if (caught.status === 404) {
+    return (
+      <html lang="en" className="dark">
+        <head>
+          <title>Oh no...</title>
+          <Links />
+        </head>
+        <body className="dark:bg-gray-900 bg-white transition duration-500">
+          <ErrorPage
+            heroProps={{
+              title: "404 - Oh no, you found a page that's missing stuff.",
+              subtitle: `"${location.pathname}" is not a page on kentcdodds.com. So sorry.`,
+              image: (
+                <MissingSomething className="rounded-lg" aspectRatio="3:4" />
+              ),
+              action: <ArrowLink href="/">Go home</ArrowLink>,
+            }}
+          />
+          <Scripts />
+        </body>
+      </html>
+    )
+  }
+  throw new Error(`Unhandled error: ${caught.status}`)
 }
 
 /*

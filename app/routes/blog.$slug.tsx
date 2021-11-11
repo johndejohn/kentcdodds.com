@@ -9,6 +9,7 @@ import type {
   MdxListItem,
   MdxPage,
   Team,
+  Workshop,
 } from '~/types'
 import {useRootData} from '~/utils/use-root-data'
 import {getImageBuilder, getImgProps, images} from '~/images'
@@ -17,6 +18,8 @@ import {
   getMdxPage,
   mdxPageMeta,
   useMdxComponent,
+  getBannerTitleProp,
+  getBannerAltProp,
 } from '~/utils/mdx'
 import {H2, H6, Paragraph} from '~/components/typography'
 import {Grid} from '~/components/grid'
@@ -27,6 +30,8 @@ import {
   getTotalPostReads,
   getBlogRecommendations,
   ReadRankings,
+  notifyOfOverallTeamLeaderChange,
+  notifyOfTeamLeaderChangeOnPost,
 } from '~/utils/blog.server'
 import {FourOhFour, ServerError} from '~/components/errors'
 import {TeamStats} from '~/components/team-stats'
@@ -40,6 +45,15 @@ import {getClientSession} from '~/utils/client.server'
 import {getRankingLeader} from '~/utils/blog'
 import {externalLinks} from '../external-links'
 import {teamEmoji, useTeam} from '~/utils/team-provider'
+import {getWorkshops} from '~/utils/workshops.server'
+import {
+  getScheduledEvents,
+  WorkshopEvent,
+} from '~/utils/workshop-tickets.server'
+import {WorkshopCard} from '~/components/workshop-card'
+import {Spacer} from '~/components/spacer'
+import clsx from 'clsx'
+import {HeaderSection} from '~/components/sections/header-section'
 
 const handleId = 'blog-post'
 export const handle: KCDHandle = {
@@ -57,6 +71,11 @@ export const action: KCDAction<{slug: string}> = async ({request, params}) => {
   const session = await getSession(request)
   const user = await session.getUser()
   const headers = new Headers()
+
+  const [beforePostLeader, beforeOverallLeader] = await Promise.all([
+    getBlogReadRankings({request, slug: params.slug}).then(getRankingLeader),
+    getBlogReadRankings({request}).then(getRankingLeader),
+  ])
   if (user) {
     await addPostRead({
       slug,
@@ -71,9 +90,39 @@ export const action: KCDAction<{slug: string}> = async ({request, params}) => {
     })
     await client.getHeaders(headers)
   }
-  // trigger an update to the ranking cache
-  void getBlogReadRankings({request, slug: params.slug, forceFresh: true})
-  void getBlogReadRankings({request, forceFresh: true})
+
+  // trigger an update to the ranking cache and notify when the leader changed
+  const [afterPostLeader, afterOverallLeader] = await Promise.all([
+    getBlogReadRankings({request, slug: params.slug, forceFresh: true}).then(
+      getRankingLeader,
+    ),
+    getBlogReadRankings({request, forceFresh: true}).then(getRankingLeader),
+  ])
+
+  if (
+    afterPostLeader?.team &&
+    afterPostLeader.team !== beforePostLeader?.team
+  ) {
+    await notifyOfTeamLeaderChangeOnPost({
+      request,
+      postSlug: slug,
+      reader: user,
+      newLeader: afterPostLeader.team,
+      prevLeader: beforePostLeader?.team,
+    })
+  }
+  if (
+    afterOverallLeader?.team &&
+    afterOverallLeader.team !== beforeOverallLeader?.team
+  ) {
+    await notifyOfOverallTeamLeaderChange({
+      request,
+      postSlug: slug,
+      reader: user,
+      newLeader: afterOverallLeader.team,
+      prevLeader: beforeOverallLeader?.team,
+    })
+  }
 
   return json({success: true, headers})
 }
@@ -86,6 +135,8 @@ type CatchData = {
 }
 type LoaderData = CatchData & {
   page: MdxPage
+  workshops: Array<Workshop>
+  workshopEvents: Array<WorkshopEvent>
 }
 
 export const loader: KCDLoader<{slug: string}> = async ({request, params}) => {
@@ -101,18 +152,21 @@ export const loader: KCDLoader<{slug: string}> = async ({request, params}) => {
     {request, timings},
   )
 
-  const [recommendations, readRankings, totalReads] = await Promise.all([
-    getBlogRecommendations(request, {
-      limit: 3,
-      keywords: [
-        ...(page?.frontmatter.categories ?? []),
-        ...(page?.frontmatter.meta?.keywords ?? []),
-      ],
-      exclude: [params.slug],
-    }),
-    getBlogReadRankings({request, slug: params.slug}),
-    getTotalPostReads(request, params.slug),
-  ])
+  const [recommendations, readRankings, totalReads, workshops, workshopEvents] =
+    await Promise.all([
+      getBlogRecommendations(request, {
+        limit: 3,
+        keywords: [
+          ...(page?.frontmatter.categories ?? []),
+          ...(page?.frontmatter.meta?.keywords ?? []),
+        ],
+        exclude: [params.slug],
+      }),
+      getBlogReadRankings({request, slug: params.slug}),
+      getTotalPostReads(request, params.slug),
+      getWorkshops({request, timings}),
+      getScheduledEvents({request}),
+    ])
 
   const catchData: CatchData = {
     recommendations,
@@ -129,7 +183,30 @@ export const loader: KCDLoader<{slug: string}> = async ({request, params}) => {
     throw json(catchData, {status: 404, headers})
   }
 
-  const data: LoaderData = {page, ...catchData}
+  const topics = [
+    ...(page.frontmatter.categories ?? []),
+    ...(page.frontmatter.meta?.keywords ?? []),
+  ]
+  const relevantWorkshops = workshops.filter(workshop => {
+    const workshopTopics = [
+      ...workshop.categories,
+      ...(workshop.meta?.keywords ?? []),
+    ]
+    return (
+      workshopTopics.some(t => topics.includes(t)) &&
+      (workshop.events.length ||
+        workshopEvents.some(
+          event => event.metadata.workshopSlug === workshop.slug,
+        ))
+    )
+  })
+
+  const data: LoaderData = {
+    page,
+    workshops: relevantWorkshops,
+    workshopEvents,
+    ...catchData,
+  }
   return json(data, {status: 200, headers})
 }
 
@@ -332,6 +409,7 @@ export default function MdxScreen() {
             totalReads={data.totalReads}
             rankings={data.readRankings}
             direction="down"
+            pull="right"
           />
         </div>
       </Grid>
@@ -346,24 +424,21 @@ export default function MdxScreen() {
             — {data.page.readTime?.text ?? 'a quick read'}
           </H6>
         </div>
-        <div className="aspect-h-4 aspect-w-3 md:aspect-w-3 md:aspect-h-2 col-span-full mt-10 rounded-lg lg:col-span-10 lg:col-start-2">
-          {frontmatter.bannerCloudinaryId ? (
+        {frontmatter.bannerCloudinaryId ? (
+          <div className="col-span-full mt-10 lg:col-span-10 lg:col-start-2 lg:mt-16">
             <BlurrableImage
               key={frontmatter.bannerCloudinaryId}
               blurDataUrl={frontmatter.bannerBlurDataUrl}
-              className="aspect-h-4 aspect-w-3 md:aspect-w-3 md:aspect-h-2 col-span-full mt-10 mx-auto rounded-lg lg:col-span-10 lg:col-start-2"
+              className="aspect-h-4 aspect-w-3 md:aspect-w-3 md:aspect-h-2"
               img={
                 <img
                   key={frontmatter.bannerCloudinaryId}
-                  title={frontmatter.bannerCredit}
-                  className="w-full h-full rounded-lg object-cover"
+                  title={getBannerTitleProp(frontmatter)}
+                  className="rounded-lg object-cover object-center"
                   {...getImgProps(
                     getImageBuilder(
                       frontmatter.bannerCloudinaryId,
-                      frontmatter.bannerAlt ??
-                        frontmatter.bannerCredit ??
-                        frontmatter.title ??
-                        'Post banner',
+                      getBannerAltProp(frontmatter),
                     ),
                     {
                       widths: [280, 560, 840, 1100, 1650, 2500, 2100, 3100],
@@ -380,8 +455,8 @@ export default function MdxScreen() {
                 />
               }
             />
-          ) : null}
-        </div>
+          </div>
+        ) : null}
       </Grid>
 
       <main ref={readMarker}>
@@ -431,7 +506,7 @@ export default function MdxScreen() {
           </div>
         </Grid>
 
-        <Grid className="prose prose-light dark:prose-dark mb-24">
+        <Grid as="main" className="prose prose-light dark:prose-dark mb-24">
           <Component />
         </Grid>
       </main>
@@ -442,17 +517,52 @@ export default function MdxScreen() {
             totalReads={data.totalReads}
             rankings={data.readRankings}
             direction="up"
+            pull="right"
           />
         </div>
       </Grid>
 
-      <div className="mb-64">
-        <ArticleFooter
-          editLink={data.page.editLink}
-          permalink={permalink}
-          title={data.page.frontmatter.title}
-        />
-      </div>
+      <ArticleFooter
+        editLink={data.page.editLink}
+        permalink={permalink}
+        title={data.page.frontmatter.title}
+      />
+
+      <Spacer size="base" />
+
+      {data.workshops.length > 0 ? (
+        <>
+          <HeaderSection
+            title="Want to learn more?"
+            subTitle="Join Kent in a live workshop"
+          />
+          <Spacer size="2xs" />
+
+          <Grid>
+            <div className="col-span-full">
+              <Grid nested rowGap>
+                {data.workshops.map((workshop, idx) => (
+                  <div
+                    key={workshop.slug}
+                    className={clsx('col-span-4', {
+                      'hidden lg:block': idx >= 2,
+                    })}
+                  >
+                    <WorkshopCard
+                      workshop={workshop}
+                      titoEvents={data.workshopEvents.filter(
+                        e => e.metadata.workshopSlug === workshop.slug,
+                      )}
+                    />
+                  </div>
+                ))}
+              </Grid>
+            </div>
+          </Grid>
+
+          <Spacer size="base" />
+        </>
+      ) : null}
 
       <BlogSection
         articles={data.recommendations}
