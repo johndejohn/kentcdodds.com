@@ -29,6 +29,10 @@ async function getSitemapXml(request: Request, remixContext: EntryContext) {
           return handle.getSitemapEntries(request)
         }
 
+        // exclude resource routes from the sitemap
+        // (these are an opt-in via the getSitemapEntries method)
+        if (!('default' in mod)) return
+
         const manifestEntry = remixContext.manifest.routes[id]
         if (!manifestEntry) {
           console.warn(`Could not find a manifest entry for ${id}`)

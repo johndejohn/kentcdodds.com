@@ -25,6 +25,7 @@ type MdxPage = {
    */
   frontmatter: {
     archived?: boolean
+    draft?: boolean
     title?: string
     description?: string
     meta?: {
@@ -86,7 +87,10 @@ type Workshop = {
   events: Array<ManualWorkshopEvent>
   description: string
   categories: Array<string>
-  meta?: Record<string, string>
+  meta: {
+    keywords?: Array<string>
+    [key as string]: string
+  }
   convertKitTag?: string
   problemStatementHTMLs: ProblemStatements
   keyTakeawayHTMLs: Array<KeyTakeaway>
@@ -190,7 +194,6 @@ type KCDHandle = {
     | Promise<Array<KCDSitemapEntry | null> | null>
     | Array<KCDSitemapEntry | null>
     | null
-  scroll?: false
 }
 
 type KCDLoader<

@@ -11,7 +11,7 @@ import {Grid} from '../grid'
 
 export type HeroSectionProps = {
   title: string | React.ReactNode
-  subtitle?: string
+  subtitle?: string | React.ReactNode
   action?: React.ReactNode
   as?: React.ElementType
 } & (
